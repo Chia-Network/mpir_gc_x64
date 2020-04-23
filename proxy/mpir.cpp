@@ -62,7 +62,16 @@ void GetCPU() {
 					strcat_s(modelstr, sizeof(modelstr), "_avx");
 				break;
 			case 78:
+                        case 85:
 			case 94:
+                        case 102:
+                        case 106:
+                        case 108:
+                        case 125:
+                        case 126:
+                        case 140:
+                        case 142:
+                        case 158:
 				strcpy_s(modelstr, sizeof(modelstr), "skylake");
 				if (cpuinfo[2] >> 28 & 1)
 					strcat_s(modelstr, sizeof(modelstr), "_avx");
