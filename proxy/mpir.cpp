@@ -1,9 +1,94 @@
 #include <windows.h>
 #include <shlwapi.h>
+#include <intrin.h>
+#include <stdio.h>
 
 HINSTANCE hLThis = 0;
 FARPROC p[600];
 HINSTANCE hL = 0;
+char modelstr[100];
+
+void GetCPU() {
+	int cpuinfo[4];
+
+	__cpuid(cpuinfo, 0);
+
+	char vendor_string[13];
+
+	vendor_string[0] = cpuinfo[1] & 0xff;
+	vendor_string[1] = cpuinfo[1] >> 8 & 0xff;
+	vendor_string[2] = cpuinfo[1] >> 16 & 0xff;
+	vendor_string[3] = cpuinfo[1] >> 24 & 0xff;
+
+	vendor_string[4] = cpuinfo[3] & 0xff;
+	vendor_string[5] = cpuinfo[3] >> 8 & 0xff;
+	vendor_string[6] = cpuinfo[3] >> 16 & 0xff;
+	vendor_string[7] = cpuinfo[3] >> 24 & 0xff;
+
+	vendor_string[8] = cpuinfo[2] & 0xff;
+	vendor_string[9] = cpuinfo[2] >> 8 & 0xff;
+	vendor_string[10] = cpuinfo[2] >> 16 & 0xff;
+	vendor_string[11] = cpuinfo[2] >> 24 & 0xff;
+
+	vendor_string[12] = 0;
+
+	__cpuid(cpuinfo, 1);
+
+	int family, model, stepping;
+
+	family = ((cpuinfo[0] >> 8) & 15) + ((cpuinfo[0] >> 20) & 0xff);
+	model = ((cpuinfo[0] >> 4) & 15) + ((cpuinfo[0] >> 12) & 0xf0);
+	stepping = cpuinfo[0] & 15;
+
+	strcpy_s(modelstr, sizeof(modelstr), "gc");
+
+	if (strcmp(vendor_string, "GenuineIntel") == 0) {
+		switch (family) {
+		case 6:
+			switch (model) {
+			case 60:
+			case 63:
+			case 69:
+			case 70:
+				strcpy_s(modelstr, sizeof(modelstr), "haswell");
+				//if (cpuinfo[2] >> 28 & 1) 
+				//	strcat_s(modelstr, sizeof(modelstr), "_avx");
+				break;
+			case 61:
+			case 71:
+			case 79:
+				strcpy_s(modelstr, sizeof(modelstr), "broadwell");
+				if (cpuinfo[2] >> 28 & 1)
+					strcat_s(modelstr, sizeof(modelstr), "_avx");
+				break;
+			case 78:
+			case 94:
+				strcpy_s(modelstr, sizeof(modelstr), "skylake");
+				if (cpuinfo[2] >> 28 & 1)
+					strcat_s(modelstr, sizeof(modelstr), "_avx");
+				break;
+			}
+		}
+	}
+	else if (strcmp(vendor_string, "AuthenticAMD") == 0) {
+		switch (family) {
+		case 21:
+			switch (model) {
+			case 1:
+				strcpy_s(modelstr, sizeof(modelstr), "bulldozer");
+				break;
+			case 2:
+			case 3:
+			case 16:
+			case 18:
+			case 19:
+				strcpy_s(modelstr, sizeof(modelstr), "piledriver");
+				break;
+			}
+			break;
+		}
+	}
+}
 
 BOOL WINAPI DllMain(HINSTANCE hInst,DWORD reason,LPVOID)
 {
@@ -13,7 +98,10 @@ BOOL WINAPI DllMain(HINSTANCE hInst,DWORD reason,LPVOID)
 		char RealDLL[MAX_PATH + 1];
 		GetModuleFileName(hInst, RealDLL, MAX_PATH);
 		PathRemoveFileSpec(RealDLL);
-		strcat_s(RealDLL, MAX_PATH, "\\mpir_.dll");
+		GetCPU();
+		strcat_s(RealDLL, MAX_PATH, "\\mpir_");
+		strcat_s(RealDLL, MAX_PATH, modelstr);
+		strcat_s(RealDLL, MAX_PATH, ".dll");
 		hL = LoadLibrary(RealDLL);
 		if(!hL) return false;
 	}
