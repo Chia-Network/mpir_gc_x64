@@ -40,6 +40,8 @@ void GetCPU() {
 	model = ((cpuinfo[0] >> 4) & 15) + ((cpuinfo[0] >> 12) & 0xf0);
 	stepping = cpuinfo[0] & 15;
 
+	const int AVX2 = 1 << 5;
+
 	strcpy_s(modelstr, sizeof(modelstr), "gc");
 
 	if (strcmp(vendor_string, "GenuineIntel") == 0) {
@@ -51,29 +53,32 @@ void GetCPU() {
 			case 69:
 			case 70:
 				strcpy_s(modelstr, sizeof(modelstr), "haswell");
-				//if (cpuinfo[2] >> 28 & 1) 
+				//__cpuid(cpuinfo, 7);
+				//if ((cpuinfo[1] & AVX2) == AVX2)
 				//	strcat_s(modelstr, sizeof(modelstr), "_avx");
 				break;
 			case 61:
 			case 71:
 			case 79:
 				strcpy_s(modelstr, sizeof(modelstr), "broadwell");
-				if (cpuinfo[2] >> 28 & 1)
+				__cpuid(cpuinfo, 7); 
+				if ((cpuinfo[1] & AVX2) == AVX2)
 					strcat_s(modelstr, sizeof(modelstr), "_avx");
 				break;
 			case 78:
-                        case 85:
+            case 85:
 			case 94:
-                        case 102:
-                        case 106:
-                        case 108:
-                        case 125:
-                        case 126:
-                        case 140:
-                        case 142:
-                        case 158:
+            case 102:
+            case 106:
+            case 108:
+            case 125:
+            case 126:
+            case 140:
+            case 142:
+            case 158:
 				strcpy_s(modelstr, sizeof(modelstr), "skylake");
-				if (cpuinfo[2] >> 28 & 1)
+				__cpuid(cpuinfo, 7); 
+				if ((cpuinfo[1] & AVX2) == AVX2)
 					strcat_s(modelstr, sizeof(modelstr), "_avx");
 				break;
 			}
