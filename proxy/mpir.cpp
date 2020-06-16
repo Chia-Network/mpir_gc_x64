@@ -76,10 +76,14 @@ void GetCPU() {
             case 140:
             case 142:
             case 158:
+            case 165:
 				strcpy_s(modelstr, sizeof(modelstr), "skylake");
 				__cpuid(cpuinfo, 7); 
 				if ((cpuinfo[1] & AVX2) == AVX2)
 					strcat_s(modelstr, sizeof(modelstr), "_avx");
+                                else
+                                        // Skylake non AVX broken https://github.com/wbhart/mpir/issues/274
+                                        strcpy_s(modelstr, sizeof(modelstr), "broadwell");
 				break;
 			}
 		}
@@ -104,18 +108,20 @@ void GetCPU() {
 	}
 }
 
+#define MPIRPATHLEN 4096
+
 BOOL WINAPI DllMain(HINSTANCE hInst,DWORD reason,LPVOID)
 {
 	if (reason == DLL_PROCESS_ATTACH)
 	{
 		hLThis = hInst;
-		char RealDLL[MAX_PATH + 1];
-		GetModuleFileName(hInst, RealDLL, MAX_PATH);
+		char RealDLL[MPIRPATHLEN + 1];
+		GetModuleFileName(hInst, RealDLL, MPIRPATHLEN);
 		PathRemoveFileSpec(RealDLL);
 		GetCPU();
-		strcat_s(RealDLL, MAX_PATH, "\\mpir_");
-		strcat_s(RealDLL, MAX_PATH, modelstr);
-		strcat_s(RealDLL, MAX_PATH, ".dll");
+		strcat_s(RealDLL, MPIRPATHLEN, "\\mpir_");
+		strcat_s(RealDLL, MPIRPATHLEN, modelstr);
+		strcat_s(RealDLL, MPIRPATHLEN, ".dll");
 		hL = LoadLibrary(RealDLL);
 		if(!hL) return false;
 	}
