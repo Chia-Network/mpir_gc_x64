@@ -83,7 +83,7 @@ void GetCPU() {
 					strcat_s(modelstr, sizeof(modelstr), "_avx");
                                 else
                                         // Skylake non AVX broken https://github.com/wbhart/mpir/issues/274
-                                        strcpy_s(modelstr, sizeof(modelstr), "broadwell");
+                                        strcpy_s(modelstr, sizeof(modelstr), "gc");
 				break;
 			}
 		}
