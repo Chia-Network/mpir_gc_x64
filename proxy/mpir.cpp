@@ -6,7 +6,7 @@
 HINSTANCE hLThis = 0;
 FARPROC p[600];
 HINSTANCE hL = 0;
-char modelstr[100];
+WCHAR modelstr[100];
 
 void GetCPU() {
     int cpuinfo[4];
@@ -42,7 +42,7 @@ void GetCPU() {
 
     const int AVX2 = 1 << 5;
 
-    strcpy_s(modelstr, sizeof(modelstr), "gc");
+    wcscpy_s(modelstr, sizeof(modelstr), L"gc");
 
     if (strcmp(vendor_string, "GenuineIntel") == 0) {
         switch (family) {
@@ -52,13 +52,13 @@ void GetCPU() {
             case 45:
             case 58:
             case 62:
-                strcpy_s(modelstr, sizeof(modelstr), "sandybridge");
+                wcscpy_s(modelstr, sizeof(modelstr), L"sandybridge");
                 break;
             case 60:
             case 63:
             case 69:
             case 70:
-                strcpy_s(modelstr, sizeof(modelstr), "haswell");
+                wcscpy_s(modelstr, sizeof(modelstr), L"haswell");
                 //__cpuid(cpuinfo, 7);
                 //if ((cpuinfo[1] & AVX2) == AVX2)
                 //	strcat_s(modelstr, sizeof(modelstr), "_avx");
@@ -66,10 +66,10 @@ void GetCPU() {
             case 61:
             case 71:
             case 79:
-                strcpy_s(modelstr, sizeof(modelstr), "broadwell");
+                wcscpy_s(modelstr, sizeof(modelstr), L"broadwell");
                 __cpuid(cpuinfo, 7);
                 if ((cpuinfo[1] & AVX2) == AVX2)
-                    strcat_s(modelstr, sizeof(modelstr), "_avx");
+                    wcscat_s(modelstr, sizeof(modelstr), L"_avx");
                 break;
             case 78:
             case 85:
@@ -83,13 +83,13 @@ void GetCPU() {
             case 142:
             case 158:
             case 165:
-                strcpy_s(modelstr, sizeof(modelstr), "skylake");
+                wcscpy_s(modelstr, sizeof(modelstr), L"skylake");
                 __cpuid(cpuinfo, 7);
                 if ((cpuinfo[1] & AVX2) == AVX2)
-                    strcat_s(modelstr, sizeof(modelstr), "_avx");
+                    wcscat_s(modelstr, sizeof(modelstr), L"_avx");
                 else
                     // Skylake non AVX broken https://github.com/wbhart/mpir/issues/274
-                    strcpy_s(modelstr, sizeof(modelstr), "gc");
+                    wcscpy_s(modelstr, sizeof(modelstr), L"gc");
                 break;
             }
         }
@@ -99,14 +99,14 @@ void GetCPU() {
         case 21:
             switch (model) {
             case 1:
-                strcpy_s(modelstr, sizeof(modelstr), "bulldozer");
+                wcscpy_s(modelstr, sizeof(modelstr), L"bulldozer");
                 break;
             case 2:
             case 3:
             case 16:
             case 18:
             case 19:
-                strcpy_s(modelstr, sizeof(modelstr), "piledriver");
+                wcscpy_s(modelstr, sizeof(modelstr), L"piledriver");
                 break;
             }
             break;
@@ -121,14 +121,14 @@ BOOL WINAPI DllMain(HINSTANCE hInst,DWORD reason,LPVOID)
     if (reason == DLL_PROCESS_ATTACH)
     {
         hLThis = hInst;
-        char RealDLL[MPIRPATHLEN + 1];
-        GetModuleFileName(hInst, RealDLL, MPIRPATHLEN);
-        PathRemoveFileSpec(RealDLL);
+        WCHAR RealDLL[MPIRPATHLEN + 1];
+        GetModuleFileNameW(hInst, RealDLL, MPIRPATHLEN);
+        PathRemoveFileSpecW(RealDLL);
         GetCPU();
-        strcat_s(RealDLL, MPIRPATHLEN, "\\mpir_");
-        strcat_s(RealDLL, MPIRPATHLEN, modelstr);
-        strcat_s(RealDLL, MPIRPATHLEN, ".dll");
-        hL = LoadLibrary(RealDLL);
+        wcscat_s(RealDLL, MPIRPATHLEN, L"\\mpir_");
+        wcscat_s(RealDLL, MPIRPATHLEN, modelstr);
+        wcscat_s(RealDLL, MPIRPATHLEN, L".dll");
+        hL = LoadLibraryW(RealDLL);
         if(!hL) return false;
     }
 
