@@ -59,9 +59,12 @@ void GetCPU() {
             case 69:
             case 70:
                 wcscpy_s(modelstr, sizeof(modelstr), L"haswell");
-                //__cpuid(cpuinfo, 7);
-                //if ((cpuinfo[1] & AVX2) == AVX2)
-                //	strcat_s(modelstr, sizeof(modelstr), "_avx");
+                __cpuid(cpuinfo, 7);
+                if ((cpuinfo[1] & AVX2) == AVX2)
+                    wcscat_s(modelstr, sizeof(modelstr), L"_avx");
+                else
+                    // Haswell non AVX broken - G1840 celeron with no AVX
+                    wcscpy_s(modelstr, sizeof(modelstr), L"gc");
                 break;
             case 61:
             case 71:
