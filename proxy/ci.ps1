@@ -25,18 +25,57 @@ function Import-VcVars([string]$VcVars) {
     }
 }
 
-function Get-ExportPairs([string]$Dll) {
-    $lines = & dumpbin /exports $Dll
-    if ($LASTEXITCODE -ne 0) {
-        throw "dumpbin /exports failed for $Dll"
-    }
-    $pairs = New-Object System.Collections.Generic.List[string]
-    foreach ($line in $lines) {
-        if ($line -match '^\s+(\d+)\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)\s*$') {
-            $pairs.Add(("{0:D4} {1}" -f [int]$Matches[1], $Matches[2]))
+function Convert-RvaToOffset([byte[]]$Bytes, [int]$SectionTable, [int]$SectionCount, [uint32]$Rva, [string]$Path) {
+    for ($i = 0; $i -lt $SectionCount; $i++) {
+        $s = $SectionTable + ($i * 40)
+        $vsz = [BitConverter]::ToUInt32($Bytes, $s + 8)
+        $va = [BitConverter]::ToUInt32($Bytes, $s + 12)
+        $rawSz = [BitConverter]::ToUInt32($Bytes, $s + 16)
+        $raw = [BitConverter]::ToUInt32($Bytes, $s + 20)
+        $span = [Math]::Max($vsz, $rawSz)
+        if ($Rva -ge $va -and $Rva -lt ($va + $span)) {
+            return [int]($raw + ($Rva - $va))
         }
     }
-    return $pairs.ToArray() | Sort-Object
+    throw "RVA $Rva is outside every section of $Path"
+}
+
+function Get-ExportPairs([string]$Dll) {
+    $path = (Resolve-Path $Dll).Path
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+    $sig = [System.Text.Encoding]::ASCII.GetString($bytes, $pe, 4)
+    if ($sig -ne "PE`0`0") {
+        throw "not a PE file: $path"
+    }
+    $coff = $pe + 4
+    $nSections = [BitConverter]::ToUInt16($bytes, $coff + 2)
+    $optSize = [BitConverter]::ToUInt16($bytes, $coff + 16)
+    $opt = $coff + 20
+    $magic = [BitConverter]::ToUInt16($bytes, $opt)
+    if ($magic -ne 0x20B) {
+        throw "expected a PE32+ DLL: $path"
+    }
+    $exportRva = [BitConverter]::ToUInt32($bytes, $opt + 112)
+    if ($exportRva -eq 0) {
+        throw "no export directory: $path"
+    }
+    $sec = $opt + $optSize
+    $exp = Convert-RvaToOffset $bytes $sec $nSections $exportRva $path
+    $ordinalBase = [BitConverter]::ToUInt32($bytes, $exp + 16)
+    $nameCount = [BitConverter]::ToUInt32($bytes, $exp + 24)
+    $namesOff = Convert-RvaToOffset $bytes $sec $nSections ([BitConverter]::ToUInt32($bytes, $exp + 32)) $path
+    $ordsOff = Convert-RvaToOffset $bytes $sec $nSections ([BitConverter]::ToUInt32($bytes, $exp + 36)) $path
+    $pairs = New-Object System.Collections.Generic.List[string]
+    for ($i = 0; $i -lt $nameCount; $i++) {
+        $nameOff = Convert-RvaToOffset $bytes $sec $nSections ([BitConverter]::ToUInt32($bytes, $namesOff + (4 * $i))) $path
+        $end = $nameOff
+        while ($bytes[$end] -ne 0) { $end++ }
+        $name = [System.Text.Encoding]::ASCII.GetString($bytes, $nameOff, $end - $nameOff)
+        $ordinal = $ordinalBase + [BitConverter]::ToUInt16($bytes, $ordsOff + (2 * $i))
+        $pairs.Add(("{0:D4} {1}" -f $ordinal, $name))
+    }
+    return @($pairs.ToArray() | Sort-Object)
 }
 
 $root = Split-Path -Parent $PSScriptRoot
