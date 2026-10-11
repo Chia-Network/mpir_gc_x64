@@ -1,0 +1,25 @@
+name: build-proxy
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build proxy, check exports, smoke test
+        shell: pwsh
+        run: .\proxy\ci.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mpir-proxy
+          path: |
+            artifacts/mpir.dll
+            artifacts/mpir.pdb
+            artifacts/smoke-log.txt
+            artifacts/build-info.txt

@@ -1,10 +1,20 @@
+#include <windows.h>
 #include <shlwapi.h>
 #include <intrin.h>
+#include <immintrin.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <wchar.h>
 
 #define MPIRPATHLEN 4096
 
+/* mProcs slots. runasm.asm jumps through mProcs[i]. The first real export
+   is slot 6, which mpir.def publishes as ordinal 7. Slots 0..5 are unused.
+   Forwarder bodies live in runasm.asm; this file only fills the slots. */
+enum { kForwardCount = 600 };
+
 HINSTANCE mHinst = 0, mHinstDLL = 0;
-WCHAR modelstr[100];
 LPCSTR mImportNames[] = {
     "",
     "",
@@ -608,731 +618,277 @@ LPCSTR mImportNames[] = {
     "mpz_out_raw_m",
 };
 
-extern "C" UINT_PTR mProcs[600] = {0};
-extern "C" void PROXY___combine_limbs();
-extern "C" void PROXY___fermat_to_mpz();
-extern "C" void PROXY___gmp_0();
-extern "C" void PROXY___gmp_allocate_func();
-extern "C" void PROXY___gmp_asprintf();
-extern "C" void PROXY___gmp_asprintf_final();
-extern "C" void PROXY___gmp_asprintf_memory();
-extern "C" void PROXY___gmp_asprintf_reps();
-extern "C" void PROXY___gmp_assert_fail();
-extern "C" void PROXY___gmp_assert_header();
-extern "C" void PROXY___gmp_bits_per_limb();
-extern "C" void PROXY___gmp_default_allocate();
-extern "C" void PROXY___gmp_default_fp_limb_precision();
-extern "C" void PROXY___gmp_default_free();
-extern "C" void PROXY___gmp_default_reallocate();
-extern "C" void PROXY___gmp_digit_value_tab();
-extern "C" void PROXY___gmp_divide_by_zero();
-extern "C" void PROXY___gmp_doprnt();
-extern "C" void PROXY___gmp_doprnt_integer();
-extern "C" void PROXY___gmp_doprnt_mpf2();
-extern "C" void PROXY___gmp_doscan();
-extern "C" void PROXY___gmp_errno();
-extern "C" void PROXY___gmp_exception();
-extern "C" void PROXY___gmp_extract_double();
-extern "C" void PROXY___gmp_fib_table();
-extern "C" void PROXY___gmp_fprintf();
-extern "C" void PROXY___gmp_free_func();
-extern "C" void PROXY___gmp_fscanf();
-extern "C" void PROXY___gmp_get_memory_functions();
-extern "C" void PROXY___gmp_init_primesieve();
-extern "C" void PROXY___gmp_invalid_operation();
-extern "C" void PROXY___gmp_jacobi_table();
-extern "C" void PROXY___gmp_junk();
-extern "C" void PROXY___gmp_modlimb_invert_table();
-extern "C" void PROXY___gmp_nextprime();
-extern "C" void PROXY___gmp_primesieve();
-extern "C" void PROXY___gmp_printf();
-extern "C" void PROXY___gmp_randclear();
-extern "C" void PROXY___gmp_randinit_default();
-extern "C" void PROXY___gmp_randinit_lc_2exp();
-extern "C" void PROXY___gmp_randinit_lc_2exp_size();
-extern "C" void PROXY___gmp_randinit_mt();
-extern "C" void PROXY___gmp_randinit_mt_noseed();
-extern "C" void PROXY___gmp_randinit_set();
-extern "C" void PROXY___gmp_rands();
-extern "C" void PROXY___gmp_rands_initialized();
-extern "C" void PROXY___gmp_randseed();
-extern "C" void PROXY___gmp_randseed_ui();
-extern "C" void PROXY___gmp_reallocate_func();
-extern "C" void PROXY___gmp_replacement_vsnprintf();
-extern "C" void PROXY___gmp_scanf();
-extern "C" void PROXY___gmp_set_memory_functions();
-extern "C" void PROXY___gmp_snprintf();
-extern "C" void PROXY___gmp_sprintf();
-extern "C" void PROXY___gmp_sqrt_of_negative();
-extern "C" void PROXY___gmp_sscanf();
-extern "C" void PROXY___gmp_tmp_reentrant_alloc();
-extern "C" void PROXY___gmp_tmp_reentrant_free();
-extern "C" void PROXY___gmp_urandomb_ui();
-extern "C" void PROXY___gmp_urandomm_ui();
-extern "C" void PROXY___gmp_vasprintf();
-extern "C" void PROXY___gmp_version();
-extern "C" void PROXY___gmp_vfprintf();
-extern "C" void PROXY___gmp_vfscanf();
-extern "C" void PROXY___gmp_vprintf();
-extern "C" void PROXY___gmp_vscanf();
-extern "C" void PROXY___gmp_vsnprintf();
-extern "C" void PROXY___gmp_vsprintf();
-extern "C" void PROXY___gmp_vsscanf();
-extern "C" void PROXY___gmpf_abs();
-extern "C" void PROXY___gmpf_add();
-extern "C" void PROXY___gmpf_add_ui();
-extern "C" void PROXY___gmpf_ceil();
-extern "C" void PROXY___gmpf_clear();
-extern "C" void PROXY___gmpf_clears();
-extern "C" void PROXY___gmpf_cmp();
-extern "C" void PROXY___gmpf_cmp_d();
-extern "C" void PROXY___gmpf_cmp_si();
-extern "C" void PROXY___gmpf_cmp_ui();
-extern "C" void PROXY___gmpf_cmp_z();
-extern "C" void PROXY___gmpf_div();
-extern "C" void PROXY___gmpf_div_2exp();
-extern "C" void PROXY___gmpf_div_ui();
-extern "C" void PROXY___gmpf_dump();
-extern "C" void PROXY___gmpf_eq();
-extern "C" void PROXY___gmpf_fits_si_p();
-extern "C" void PROXY___gmpf_fits_sint_p();
-extern "C" void PROXY___gmpf_fits_slong_p();
-extern "C" void PROXY___gmpf_fits_sshort_p();
-extern "C" void PROXY___gmpf_fits_ui_p();
-extern "C" void PROXY___gmpf_fits_uint_p();
-extern "C" void PROXY___gmpf_fits_ulong_p();
-extern "C" void PROXY___gmpf_fits_ushort_p();
-extern "C" void PROXY___gmpf_floor();
-extern "C" void PROXY___gmpf_get_2exp_d();
-extern "C" void PROXY___gmpf_get_d();
-extern "C" void PROXY___gmpf_get_d_2exp();
-extern "C" void PROXY___gmpf_get_default_prec();
-extern "C" void PROXY___gmpf_get_prec();
-extern "C" void PROXY___gmpf_get_si();
-extern "C" void PROXY___gmpf_get_str();
-extern "C" void PROXY___gmpf_get_ui();
-extern "C" void PROXY___gmpf_init();
-extern "C" void PROXY___gmpf_init2();
-extern "C" void PROXY___gmpf_init_set();
-extern "C" void PROXY___gmpf_init_set_d();
-extern "C" void PROXY___gmpf_init_set_si();
-extern "C" void PROXY___gmpf_init_set_str();
-extern "C" void PROXY___gmpf_init_set_ui();
-extern "C" void PROXY___gmpf_inits();
-extern "C" void PROXY___gmpf_inp_str();
-extern "C" void PROXY___gmpf_integer_p();
-extern "C" void PROXY___gmpf_mul();
-extern "C" void PROXY___gmpf_mul_2exp();
-extern "C" void PROXY___gmpf_mul_ui();
-extern "C" void PROXY___gmpf_neg();
-extern "C" void PROXY___gmpf_out_str();
-extern "C" void PROXY___gmpf_pow_ui();
-extern "C" void PROXY___gmpf_random2();
-extern "C" void PROXY___gmpf_reldiff();
-extern "C" void PROXY___gmpf_rrandomb();
-extern "C" void PROXY___gmpf_set();
-extern "C" void PROXY___gmpf_set_d();
-extern "C" void PROXY___gmpf_set_default_prec();
-extern "C" void PROXY___gmpf_set_prec();
-extern "C" void PROXY___gmpf_set_prec_raw();
-extern "C" void PROXY___gmpf_set_q();
-extern "C" void PROXY___gmpf_set_si();
-extern "C" void PROXY___gmpf_set_str();
-extern "C" void PROXY___gmpf_set_ui();
-extern "C" void PROXY___gmpf_set_z();
-extern "C" void PROXY___gmpf_size();
-extern "C" void PROXY___gmpf_sqrt();
-extern "C" void PROXY___gmpf_sqrt_ui();
-extern "C" void PROXY___gmpf_sub();
-extern "C" void PROXY___gmpf_sub_ui();
-extern "C" void PROXY___gmpf_swap();
-extern "C" void PROXY___gmpf_trunc();
-extern "C" void PROXY___gmpf_ui_div();
-extern "C" void PROXY___gmpf_ui_sub();
-extern "C" void PROXY___gmpf_urandomb();
-extern "C" void PROXY___gmpn_add();
-extern "C" void PROXY___gmpn_add_1();
-extern "C" void PROXY___gmpn_add_err1_n();
-extern "C" void PROXY___gmpn_add_err2_n();
-extern "C" void PROXY___gmpn_add_n();
-extern "C" void PROXY___gmpn_addadd_n();
-extern "C" void PROXY___gmpn_addmul_1();
-extern "C" void PROXY___gmpn_addmul_2();
-extern "C" void PROXY___gmpn_addsub_n();
-extern "C" void PROXY___gmpn_and_n();
-extern "C" void PROXY___gmpn_andn_n();
-extern "C" void PROXY___gmpn_bases();
-extern "C" void PROXY___gmpn_bc_set_str();
-extern "C" void PROXY___gmpn_bdivmod();
-extern "C" void PROXY___gmpn_binvert();
-extern "C" void PROXY___gmpn_binvert_itch();
-extern "C" void PROXY___gmpn_clz_tab();
-extern "C" void PROXY___gmpn_cmp();
-extern "C" void PROXY___gmpn_com_n();
-extern "C" void PROXY___gmpn_copyd();
-extern "C" void PROXY___gmpn_copyi();
-extern "C" void PROXY___gmpn_dc_bdiv_q();
-extern "C" void PROXY___gmpn_dc_bdiv_q_n();
-extern "C" void PROXY___gmpn_dc_bdiv_qr();
-extern "C" void PROXY___gmpn_dc_bdiv_qr_n();
-extern "C" void PROXY___gmpn_dc_div_q();
-extern "C" void PROXY___gmpn_dc_div_qr();
-extern "C" void PROXY___gmpn_dc_div_qr_n();
-extern "C" void PROXY___gmpn_dc_divappr_q();
-extern "C" void PROXY___gmpn_dc_set_str();
-extern "C" void PROXY___gmpn_div_2expmod_2expp1();
-extern "C" void PROXY___gmpn_divexact();
-extern "C" void PROXY___gmpn_divexact_1();
-extern "C" void PROXY___gmpn_divexact_by3c();
-extern "C" void PROXY___gmpn_divexact_byff();
-extern "C" void PROXY___gmpn_divexact_byfobm1();
-extern "C" void PROXY___gmpn_divisible_p();
-extern "C" void PROXY___gmpn_divrem();
-extern "C" void PROXY___gmpn_divrem_1();
-extern "C" void PROXY___gmpn_divrem_2();
-extern "C" void PROXY___gmpn_divrem_euclidean_qr_1();
-extern "C" void PROXY___gmpn_divrem_euclidean_qr_2();
-extern "C" void PROXY___gmpn_divrem_euclidean_r_1();
-extern "C" void PROXY___gmpn_divrem_hensel_qr_1();
-extern "C" void PROXY___gmpn_divrem_hensel_qr_1_1();
-extern "C" void PROXY___gmpn_divrem_hensel_qr_1_2();
-extern "C" void PROXY___gmpn_divrem_hensel_r_1();
-extern "C" void PROXY___gmpn_divrem_hensel_rsh_qr_1();
-extern "C" void PROXY___gmpn_divrem_hensel_rsh_qr_1_preinv();
-extern "C" void PROXY___gmpn_dump();
-extern "C" void PROXY___gmpn_fib2_ui();
-extern "C" void PROXY___gmpn_gcd();
-extern "C" void PROXY___gmpn_gcd_1();
-extern "C" void PROXY___gmpn_gcd_subdiv_step();
-extern "C" void PROXY___gmpn_gcdext();
-extern "C" void PROXY___gmpn_gcdext_1();
-extern "C" void PROXY___gmpn_gcdext_hook();
-extern "C" void PROXY___gmpn_gcdext_lehmer_n();
-extern "C" void PROXY___gmpn_get_d();
-extern "C" void PROXY___gmpn_get_str();
-extern "C" void PROXY___gmpn_hamdist();
-extern "C" void PROXY___gmpn_hgcd();
-extern "C" void PROXY___gmpn_hgcd2();
-extern "C" void PROXY___gmpn_hgcd2_jacobi();
-extern "C" void PROXY___gmpn_hgcd_appr();
-extern "C" void PROXY___gmpn_hgcd_appr_itch();
-extern "C" void PROXY___gmpn_hgcd_itch();
-extern "C" void PROXY___gmpn_hgcd_jacobi();
-extern "C" void PROXY___gmpn_hgcd_matrix_adjust();
-extern "C" void PROXY___gmpn_hgcd_matrix_init();
-extern "C" void PROXY___gmpn_hgcd_matrix_mul();
-extern "C" void PROXY___gmpn_hgcd_matrix_mul_1();
-extern "C" void PROXY___gmpn_hgcd_matrix_update_q();
-extern "C" void PROXY___gmpn_hgcd_mul_matrix1_vector();
-extern "C" void PROXY___gmpn_hgcd_reduce();
-extern "C" void PROXY___gmpn_hgcd_reduce_itch();
-extern "C" void PROXY___gmpn_hgcd_step();
-extern "C" void PROXY___gmpn_inv_div_q();
-extern "C" void PROXY___gmpn_inv_div_qr();
-extern "C" void PROXY___gmpn_inv_div_qr_n();
-extern "C" void PROXY___gmpn_inv_divappr_q();
-extern "C" void PROXY___gmpn_inv_divappr_q_n();
-extern "C" void PROXY___gmpn_invert();
-extern "C" void PROXY___gmpn_invert_trunc();
-extern "C" void PROXY___gmpn_ior_n();
-extern "C" void PROXY___gmpn_iorn_n();
-extern "C" void PROXY___gmpn_is_invert();
-extern "C" void PROXY___gmpn_jacobi_2();
-extern "C" void PROXY___gmpn_jacobi_base();
-extern "C" void PROXY___gmpn_jacobi_n();
-extern "C" void PROXY___gmpn_kara_mul_n();
-extern "C" void PROXY___gmpn_kara_sqr_n();
-extern "C" void PROXY___gmpn_lshift();
-extern "C" void PROXY___gmpn_matrix22_mul();
-extern "C" void PROXY___gmpn_matrix22_mul1_inverse_vector();
-extern "C" void PROXY___gmpn_matrix22_mul_itch();
-extern "C" void PROXY___gmpn_matrix22_mul_strassen();
-extern "C" void PROXY___gmpn_mod_1();
-extern "C" void PROXY___gmpn_mod_1_1();
-extern "C" void PROXY___gmpn_mod_1_2();
-extern "C" void PROXY___gmpn_mod_1_3();
-extern "C" void PROXY___gmpn_mod_1_k();
-extern "C" void PROXY___gmpn_mod_34lsub1();
-extern "C" void PROXY___gmpn_modexact_1c_odd();
-extern "C" void PROXY___gmpn_mul();
-extern "C" void PROXY___gmpn_mul_1();
-extern "C" void PROXY___gmpn_mul_2expmod_2expp1();
-extern "C" void PROXY___gmpn_mul_basecase();
-extern "C" void PROXY___gmpn_mul_fft();
-extern "C" void PROXY___gmpn_mul_fft_main();
-extern "C" void PROXY___gmpn_mul_mfa_trunc_sqrt2();
-extern "C" void PROXY___gmpn_mul_n();
-extern "C" void PROXY___gmpn_mul_trunc_sqrt2();
-extern "C" void PROXY___gmpn_mulhigh_n();
-extern "C" void PROXY___gmpn_mullow_basecase();
-extern "C" void PROXY___gmpn_mullow_n();
-extern "C" void PROXY___gmpn_mullow_n_basecase();
-extern "C" void PROXY___gmpn_mulmid();
-extern "C" void PROXY___gmpn_mulmid_basecase();
-extern "C" void PROXY___gmpn_mulmid_n();
-extern "C" void PROXY___gmpn_mulmod_2expm1();
-extern "C" void PROXY___gmpn_mulmod_2expp1_basecase();
-extern "C" void PROXY___gmpn_mulmod_Bexpp1();
-extern "C" void PROXY___gmpn_mulmod_Bexpp1_fft();
-extern "C" void PROXY___gmpn_mulmod_bnm1();
-extern "C" void PROXY___gmpn_nand_n();
-extern "C" void PROXY___gmpn_nior_n();
-extern "C" void PROXY___gmpn_normmod_2expp1();
-extern "C" void PROXY___gmpn_nsumdiff_n();
-extern "C" void PROXY___gmpn_perfect_square_p();
-extern "C" void PROXY___gmpn_popcount();
-extern "C" void PROXY___gmpn_pow_1();
-extern "C" void PROXY___gmpn_powlo();
-extern "C" void PROXY___gmpn_powm();
-extern "C" void PROXY___gmpn_preinv_divrem_1();
-extern "C" void PROXY___gmpn_preinv_mod_1();
-extern "C" void PROXY___gmpn_random();
-extern "C" void PROXY___gmpn_random2();
-extern "C" void PROXY___gmpn_randomb();
-extern "C" void PROXY___gmpn_redc_1();
-extern "C" void PROXY___gmpn_redc_2();
-extern "C" void PROXY___gmpn_redc_n();
-extern "C" void PROXY___gmpn_rootrem();
-extern "C" void PROXY___gmpn_rootrem_basecase();
-extern "C" void PROXY___gmpn_rrandom();
-extern "C" void PROXY___gmpn_rsh_divrem_hensel_qr_1();
-extern "C" void PROXY___gmpn_rsh_divrem_hensel_qr_1_1();
-extern "C" void PROXY___gmpn_rsh_divrem_hensel_qr_1_2();
-extern "C" void PROXY___gmpn_rshift();
-extern "C" void PROXY___gmpn_sb_bdiv_q();
-extern "C" void PROXY___gmpn_sb_bdiv_qr();
-extern "C" void PROXY___gmpn_sb_div_q();
-extern "C" void PROXY___gmpn_sb_div_qr();
-extern "C" void PROXY___gmpn_sb_divappr_q();
-extern "C" void PROXY___gmpn_scan0();
-extern "C" void PROXY___gmpn_scan1();
-extern "C" void PROXY___gmpn_set_str();
-extern "C" void PROXY___gmpn_set_str_compute_powtab();
-extern "C" void PROXY___gmpn_sizeinbase();
-extern "C" void PROXY___gmpn_sqr();
-extern "C" void PROXY___gmpn_sqr_basecase();
-extern "C" void PROXY___gmpn_sqrtrem();
-extern "C" void PROXY___gmpn_sub();
-extern "C" void PROXY___gmpn_sub_1();
-extern "C" void PROXY___gmpn_sub_err1_n();
-extern "C" void PROXY___gmpn_sub_err2_n();
-extern "C" void PROXY___gmpn_sub_n();
-extern "C" void PROXY___gmpn_subadd_n();
-extern "C" void PROXY___gmpn_submul_1();
-extern "C" void PROXY___gmpn_sumdiff_n();
-extern "C" void PROXY___gmpn_tdiv_q();
-extern "C" void PROXY___gmpn_tdiv_qr();
-extern "C" void PROXY___gmpn_toom32_mul();
-extern "C" void PROXY___gmpn_toom3_interpolate();
-extern "C" void PROXY___gmpn_toom3_mul();
-extern "C" void PROXY___gmpn_toom3_mul_n();
-extern "C" void PROXY___gmpn_toom3_sqr_n();
-extern "C" void PROXY___gmpn_toom42_mul();
-extern "C" void PROXY___gmpn_toom42_mulmid();
-extern "C" void PROXY___gmpn_toom4_interpolate();
-extern "C" void PROXY___gmpn_toom4_mul();
-extern "C" void PROXY___gmpn_toom4_mul_n();
-extern "C" void PROXY___gmpn_toom4_sqr_n();
-extern "C" void PROXY___gmpn_toom53_mul();
-extern "C" void PROXY___gmpn_toom8_sqr_n();
-extern "C" void PROXY___gmpn_toom8h_mul();
-extern "C" void PROXY___gmpn_toom_couple_handling();
-extern "C" void PROXY___gmpn_toom_eval_dgr3_pm1();
-extern "C" void PROXY___gmpn_toom_eval_dgr3_pm2();
-extern "C" void PROXY___gmpn_toom_eval_pm1();
-extern "C" void PROXY___gmpn_toom_eval_pm2();
-extern "C" void PROXY___gmpn_toom_eval_pm2exp();
-extern "C" void PROXY___gmpn_toom_eval_pm2rexp();
-extern "C" void PROXY___gmpn_toom_interpolate_16pts();
-extern "C" void PROXY___gmpn_urandomb();
-extern "C" void PROXY___gmpn_urandomm();
-extern "C" void PROXY___gmpn_xnor_n();
-extern "C" void PROXY___gmpn_xor_n();
-extern "C" void PROXY___gmpn_zero();
-extern "C" void PROXY___gmpn_zero_p();
-extern "C" void PROXY___gmpq_abs();
-extern "C" void PROXY___gmpq_add();
-extern "C" void PROXY___gmpq_canonicalize();
-extern "C" void PROXY___gmpq_clear();
-extern "C" void PROXY___gmpq_clears();
-extern "C" void PROXY___gmpq_cmp();
-extern "C" void PROXY___gmpq_cmp_si();
-extern "C" void PROXY___gmpq_cmp_ui();
-extern "C" void PROXY___gmpq_cmp_z();
-extern "C" void PROXY___gmpq_div();
-extern "C" void PROXY___gmpq_div_2exp();
-extern "C" void PROXY___gmpq_equal();
-extern "C" void PROXY___gmpq_get_d();
-extern "C" void PROXY___gmpq_get_den();
-extern "C" void PROXY___gmpq_get_num();
-extern "C" void PROXY___gmpq_get_str();
-extern "C" void PROXY___gmpq_init();
-extern "C" void PROXY___gmpq_inits();
-extern "C" void PROXY___gmpq_inp_str();
-extern "C" void PROXY___gmpq_inv();
-extern "C" void PROXY___gmpq_mul();
-extern "C" void PROXY___gmpq_mul_2exp();
-extern "C" void PROXY___gmpq_neg();
-extern "C" void PROXY___gmpq_out_str();
-extern "C" void PROXY___gmpq_set();
-extern "C" void PROXY___gmpq_set_d();
-extern "C" void PROXY___gmpq_set_den();
-extern "C" void PROXY___gmpq_set_f();
-extern "C" void PROXY___gmpq_set_num();
-extern "C" void PROXY___gmpq_set_si();
-extern "C" void PROXY___gmpq_set_str();
-extern "C" void PROXY___gmpq_set_ui();
-extern "C" void PROXY___gmpq_set_z();
-extern "C" void PROXY___gmpq_sub();
-extern "C" void PROXY___gmpq_swap();
-extern "C" void PROXY___gmpz_2fac_ui();
-extern "C" void PROXY___gmpz_abs();
-extern "C" void PROXY___gmpz_add();
-extern "C" void PROXY___gmpz_add_ui();
-extern "C" void PROXY___gmpz_addmul();
-extern "C" void PROXY___gmpz_addmul_ui();
-extern "C" void PROXY___gmpz_and();
-extern "C" void PROXY___gmpz_aorsmul_1();
-extern "C" void PROXY___gmpz_array_init();
-extern "C" void PROXY___gmpz_bin_ui();
-extern "C" void PROXY___gmpz_bin_uiui();
-extern "C" void PROXY___gmpz_cdiv_q();
-extern "C" void PROXY___gmpz_cdiv_q_2exp();
-extern "C" void PROXY___gmpz_cdiv_q_ui();
-extern "C" void PROXY___gmpz_cdiv_qr();
-extern "C" void PROXY___gmpz_cdiv_qr_ui();
-extern "C" void PROXY___gmpz_cdiv_r();
-extern "C" void PROXY___gmpz_cdiv_r_2exp();
-extern "C" void PROXY___gmpz_cdiv_r_ui();
-extern "C" void PROXY___gmpz_cdiv_ui();
-extern "C" void PROXY___gmpz_clear();
-extern "C" void PROXY___gmpz_clears();
-extern "C" void PROXY___gmpz_clrbit();
-extern "C" void PROXY___gmpz_cmp();
-extern "C" void PROXY___gmpz_cmp_d();
-extern "C" void PROXY___gmpz_cmp_si();
-extern "C" void PROXY___gmpz_cmp_ui();
-extern "C" void PROXY___gmpz_cmpabs();
-extern "C" void PROXY___gmpz_cmpabs_d();
-extern "C" void PROXY___gmpz_cmpabs_ui();
-extern "C" void PROXY___gmpz_com();
-extern "C" void PROXY___gmpz_combit();
-extern "C" void PROXY___gmpz_congruent_2exp_p();
-extern "C" void PROXY___gmpz_congruent_p();
-extern "C" void PROXY___gmpz_congruent_ui_p();
-extern "C" void PROXY___gmpz_divexact();
-extern "C" void PROXY___gmpz_divexact_gcd();
-extern "C" void PROXY___gmpz_divexact_ui();
-extern "C" void PROXY___gmpz_divisible_2exp_p();
-extern "C" void PROXY___gmpz_divisible_p();
-extern "C" void PROXY___gmpz_divisible_ui_p();
-extern "C" void PROXY___gmpz_dump();
-extern "C" void PROXY___gmpz_export();
-extern "C" void PROXY___gmpz_fac_ui();
-extern "C" void PROXY___gmpz_fdiv_q();
-extern "C" void PROXY___gmpz_fdiv_q_2exp();
-extern "C" void PROXY___gmpz_fdiv_q_ui();
-extern "C" void PROXY___gmpz_fdiv_qr();
-extern "C" void PROXY___gmpz_fdiv_qr_ui();
-extern "C" void PROXY___gmpz_fdiv_r();
-extern "C" void PROXY___gmpz_fdiv_r_2exp();
-extern "C" void PROXY___gmpz_fdiv_r_ui();
-extern "C" void PROXY___gmpz_fdiv_ui();
-extern "C" void PROXY___gmpz_fib2_ui();
-extern "C" void PROXY___gmpz_fib_ui();
-extern "C" void PROXY___gmpz_fits_si_p();
-extern "C" void PROXY___gmpz_fits_sint_p();
-extern "C" void PROXY___gmpz_fits_slong_p();
-extern "C" void PROXY___gmpz_fits_sshort_p();
-extern "C" void PROXY___gmpz_fits_ui_p();
-extern "C" void PROXY___gmpz_fits_uint_p();
-extern "C" void PROXY___gmpz_fits_ulong_p();
-extern "C" void PROXY___gmpz_fits_ushort_p();
-extern "C" void PROXY___gmpz_gcd();
-extern "C" void PROXY___gmpz_gcd_ui();
-extern "C" void PROXY___gmpz_gcdext();
-extern "C" void PROXY___gmpz_get_2exp_d();
-extern "C" void PROXY___gmpz_get_d();
-extern "C" void PROXY___gmpz_get_d_2exp();
-extern "C" void PROXY___gmpz_get_si();
-extern "C" void PROXY___gmpz_get_str();
-extern "C" void PROXY___gmpz_get_sx();
-extern "C" void PROXY___gmpz_get_ui();
-extern "C" void PROXY___gmpz_get_ux();
-extern "C" void PROXY___gmpz_getlimbn();
-extern "C" void PROXY___gmpz_hamdist();
-extern "C" void PROXY___gmpz_import();
-extern "C" void PROXY___gmpz_init();
-extern "C" void PROXY___gmpz_init2();
-extern "C" void PROXY___gmpz_init_set();
-extern "C" void PROXY___gmpz_init_set_d();
-extern "C" void PROXY___gmpz_init_set_si();
-extern "C" void PROXY___gmpz_init_set_str();
-extern "C" void PROXY___gmpz_init_set_sx();
-extern "C" void PROXY___gmpz_init_set_ui();
-extern "C" void PROXY___gmpz_init_set_ux();
-extern "C" void PROXY___gmpz_inits();
-extern "C" void PROXY___gmpz_inp_raw();
-extern "C" void PROXY___gmpz_inp_str();
-extern "C" void PROXY___gmpz_inp_str_nowhite();
-extern "C" void PROXY___gmpz_invert();
-extern "C" void PROXY___gmpz_ior();
-extern "C" void PROXY___gmpz_jacobi();
-extern "C" void PROXY___gmpz_kronecker_si();
-extern "C" void PROXY___gmpz_kronecker_ui();
-extern "C" void PROXY___gmpz_lcm();
-extern "C" void PROXY___gmpz_lcm_ui();
-extern "C" void PROXY___gmpz_likely_prime_p();
-extern "C" void PROXY___gmpz_limbs_finish();
-extern "C" void PROXY___gmpz_limbs_modify();
-extern "C" void PROXY___gmpz_limbs_read();
-extern "C" void PROXY___gmpz_limbs_write();
-extern "C" void PROXY___gmpz_lucnum2_ui();
-extern "C" void PROXY___gmpz_lucnum_ui();
-extern "C" void PROXY___gmpz_mfac_uiui();
-extern "C" void PROXY___gmpz_miller_rabin();
-extern "C" void PROXY___gmpz_millerrabin();
-extern "C" void PROXY___gmpz_mod();
-extern "C" void PROXY___gmpz_mul();
-extern "C" void PROXY___gmpz_mul_2exp();
-extern "C" void PROXY___gmpz_mul_si();
-extern "C" void PROXY___gmpz_mul_ui();
-extern "C" void PROXY___gmpz_n_pow_ui();
-extern "C" void PROXY___gmpz_neg();
-extern "C" void PROXY___gmpz_next_prime_candidate();
-extern "C" void PROXY___gmpz_nextprime();
-extern "C" void PROXY___gmpz_nthroot();
-extern "C" void PROXY___gmpz_oddfac_1();
-extern "C" void PROXY___gmpz_out_raw();
-extern "C" void PROXY___gmpz_out_str();
-extern "C" void PROXY___gmpz_perfect_power_p();
-extern "C" void PROXY___gmpz_perfect_square_p();
-extern "C" void PROXY___gmpz_popcount();
-extern "C" void PROXY___gmpz_pow_ui();
-extern "C" void PROXY___gmpz_powm();
-extern "C" void PROXY___gmpz_powm_ui();
-extern "C" void PROXY___gmpz_primorial_ui();
-extern "C" void PROXY___gmpz_probab_prime_p();
-extern "C" void PROXY___gmpz_probable_prime_p();
-extern "C" void PROXY___gmpz_prodlimbs();
-extern "C" void PROXY___gmpz_realloc();
-extern "C" void PROXY___gmpz_realloc2();
-extern "C" void PROXY___gmpz_remove();
-extern "C" void PROXY___gmpz_roinit_n();
-extern "C" void PROXY___gmpz_root();
-extern "C" void PROXY___gmpz_rootrem();
-extern "C" void PROXY___gmpz_rrandomb();
-extern "C" void PROXY___gmpz_scan0();
-extern "C" void PROXY___gmpz_scan1();
-extern "C" void PROXY___gmpz_set();
-extern "C" void PROXY___gmpz_set_d();
-extern "C" void PROXY___gmpz_set_f();
-extern "C" void PROXY___gmpz_set_q();
-extern "C" void PROXY___gmpz_set_si();
-extern "C" void PROXY___gmpz_set_str();
-extern "C" void PROXY___gmpz_set_sx();
-extern "C" void PROXY___gmpz_set_ui();
-extern "C" void PROXY___gmpz_set_ux();
-extern "C" void PROXY___gmpz_setbit();
-extern "C" void PROXY___gmpz_si_kronecker();
-extern "C" void PROXY___gmpz_size();
-extern "C" void PROXY___gmpz_sizeinbase();
-extern "C" void PROXY___gmpz_sqrt();
-extern "C" void PROXY___gmpz_sqrtrem();
-extern "C" void PROXY___gmpz_sub();
-extern "C" void PROXY___gmpz_sub_ui();
-extern "C" void PROXY___gmpz_submul();
-extern "C" void PROXY___gmpz_submul_ui();
-extern "C" void PROXY___gmpz_swap();
-extern "C" void PROXY___gmpz_tdiv_q();
-extern "C" void PROXY___gmpz_tdiv_q_2exp();
-extern "C" void PROXY___gmpz_tdiv_q_ui();
-extern "C" void PROXY___gmpz_tdiv_qr();
-extern "C" void PROXY___gmpz_tdiv_qr_ui();
-extern "C" void PROXY___gmpz_tdiv_r();
-extern "C" void PROXY___gmpz_tdiv_r_2exp();
-extern "C" void PROXY___gmpz_tdiv_r_ui();
-extern "C" void PROXY___gmpz_tdiv_ui();
-extern "C" void PROXY___gmpz_trial_division();
-extern "C" void PROXY___gmpz_tstbit();
-extern "C" void PROXY___gmpz_ui_kronecker();
-extern "C" void PROXY___gmpz_ui_pow_ui();
-extern "C" void PROXY___gmpz_ui_sub();
-extern "C" void PROXY___gmpz_urandomb();
-extern "C" void PROXY___gmpz_urandomm();
-extern "C" void PROXY___gmpz_xor();
-extern "C" void PROXY___mpir_butterfly_lshB();
-extern "C" void PROXY___mpir_butterfly_rshB();
-extern "C" void PROXY___mpir_fft_adjust();
-extern "C" void PROXY___mpir_fft_adjust_limbs();
-extern "C" void PROXY___mpir_fft_adjust_sqrt2();
-extern "C" void PROXY___mpir_fft_butterfly();
-extern "C" void PROXY___mpir_fft_butterfly_sqrt2();
-extern "C" void PROXY___mpir_fft_butterfly_twiddle();
-extern "C" void PROXY___mpir_fft_combine_bits();
-extern "C" void PROXY___mpir_fft_mfa_trunc_sqrt2();
-extern "C" void PROXY___mpir_fft_mfa_trunc_sqrt2_inner();
-extern "C" void PROXY___mpir_fft_mfa_trunc_sqrt2_outer();
-extern "C" void PROXY___mpir_fft_mulmod_2expp1();
-extern "C" void PROXY___mpir_fft_naive_convolution_1();
-extern "C" void PROXY___mpir_fft_negacyclic();
-extern "C" void PROXY___mpir_fft_radix2();
-extern "C" void PROXY___mpir_fft_radix2_twiddle();
-extern "C" void PROXY___mpir_fft_split_bits();
-extern "C" void PROXY___mpir_fft_split_limbs();
-extern "C" void PROXY___mpir_fft_trunc();
-extern "C" void PROXY___mpir_fft_trunc1();
-extern "C" void PROXY___mpir_fft_trunc1_twiddle();
-extern "C" void PROXY___mpir_fft_trunc_sqrt2();
-extern "C" void PROXY___mpir_ifft_butterfly();
-extern "C" void PROXY___mpir_ifft_butterfly_sqrt2();
-extern "C" void PROXY___mpir_ifft_butterfly_twiddle();
-extern "C" void PROXY___mpir_ifft_mfa_trunc_sqrt2();
-extern "C" void PROXY___mpir_ifft_mfa_trunc_sqrt2_outer();
-extern "C" void PROXY___mpir_ifft_negacyclic();
-extern "C" void PROXY___mpir_ifft_radix2();
-extern "C" void PROXY___mpir_ifft_radix2_twiddle();
-extern "C" void PROXY___mpir_ifft_trunc();
-extern "C" void PROXY___mpir_ifft_trunc1();
-extern "C" void PROXY___mpir_ifft_trunc1_twiddle();
-extern "C" void PROXY___mpir_ifft_trunc_sqrt2();
-extern "C" void PROXY___mpir_revbin();
-extern "C" void PROXY___mpir_version();
-extern "C" void PROXY_mpir_is_likely_prime_BPSW();
-extern "C" void PROXY_mpir_sqrt();
-extern "C" void PROXY_mpz_inp_raw_m();
-extern "C" void PROXY_mpz_inp_raw_p();
-extern "C" void PROXY_mpz_out_raw_m();
+extern "C" UINT_PTR mProcs[kForwardCount] = { 0 };
+static_assert(sizeof(mImportNames) / sizeof(mImportNames[0]) == kForwardCount,
+    "mImportNames and mProcs must stay in lockstep with runasm.asm");
 
-void GetCPU() {
-    int cpuinfo[4];
+enum {
+    FEAT_AVX = 1u << 0,
+    FEAT_AVX2 = 1u << 1,
+    FEAT_BMI2 = 1u << 2,
+    FEAT_ADX = 1u << 3,
+    /* XGETBV(0) & 6 == 6: the OS saves XMM and YMM. */
+    FEAT_OS_YMM = 1u << 4
+};
 
-    __cpuid(cpuinfo, 0);
+enum {
+    CPUID1_ECX_OSXSAVE = 1u << 27,
+    CPUID1_ECX_AVX = 1u << 28,
+    CPUID7_EBX_AVX2 = 1u << 5,
+    CPUID7_EBX_BMI2 = 1u << 8,
+    CPUID7_EBX_ADX = 1u << 19,
+    XCR0_XMM_AND_YMM = 0x6
+};
 
-    char vendor_string[13];
+enum {
+    VENDOR_ANY = 0,
+    VENDOR_INTEL = 1,
+    VENDOR_AMD = 2
+};
 
-    vendor_string[0] = cpuinfo[1] & 0xff;
-    vendor_string[1] = cpuinfo[1] >> 8 & 0xff;
-    vendor_string[2] = cpuinfo[1] >> 16 & 0xff;
-    vendor_string[3] = cpuinfo[1] >> 24 & 0xff;
+/* family or model < 0 matches any CPU. features is the set that must all be present. */
+struct ArchRule {
+    const wchar_t* arch;
+    int vendor;
+    int family;
+    int model;
+    unsigned features;
+};
 
-    vendor_string[4] = cpuinfo[3] & 0xff;
-    vendor_string[5] = cpuinfo[3] >> 8 & 0xff;
-    vendor_string[6] = cpuinfo[3] >> 16 & 0xff;
-    vendor_string[7] = cpuinfo[3] >> 24 & 0xff;
+struct CpuInfo {
+    int vendor;
+    int family;
+    int model;
+    unsigned features;
+};
 
-    vendor_string[8] = cpuinfo[2] & 0xff;
-    vendor_string[9] = cpuinfo[2] >> 8 & 0xff;
-    vendor_string[10] = cpuinfo[2] >> 16 & 0xff;
-    vendor_string[11] = cpuinfo[2] >> 24 & 0xff;
+/* First matching row wins.
+   Bulldozer, Piledriver, and Broadwell keep the DLLs the previous model map
+   loaded. Broadwell also has BMI2+ADX+AVX2, so the feature rows would select
+   skylake_avx; Bulldozer has AVX, so those rows would select sandybridge.
+   Every other CPU is selected from the feature rows. */
+static const struct ArchRule kArchRules[] = {
+    { L"bulldozer", VENDOR_AMD, 21, 1, 0 },
+    { L"piledriver", VENDOR_AMD, 21, 2, 0 },
+    { L"piledriver", VENDOR_AMD, 21, 3, 0 },
+    { L"piledriver", VENDOR_AMD, 21, 16, 0 },
+    { L"piledriver", VENDOR_AMD, 21, 18, 0 },
+    { L"piledriver", VENDOR_AMD, 21, 19, 0 },
+    { L"broadwell_avx", VENDOR_INTEL, 6, 61, FEAT_AVX2 },
+    { L"broadwell_avx", VENDOR_INTEL, 6, 71, FEAT_AVX2 },
+    { L"broadwell_avx", VENDOR_INTEL, 6, 79, FEAT_AVX2 },
+    { L"broadwell", VENDOR_INTEL, 6, 61, 0 },
+    { L"broadwell", VENDOR_INTEL, 6, 71, 0 },
+    { L"broadwell", VENDOR_INTEL, 6, 79, 0 },
+    { L"skylake_avx", VENDOR_ANY, -1, -1, FEAT_BMI2 | FEAT_ADX | FEAT_AVX2 | FEAT_OS_YMM },
+    { L"haswell", VENDOR_ANY, -1, -1, FEAT_BMI2 | FEAT_AVX2 | FEAT_OS_YMM },
+    { L"sandybridge", VENDOR_ANY, -1, -1, FEAT_AVX | FEAT_OS_YMM },
+    { L"gc", VENDOR_ANY, -1, -1, 0 },
+};
 
-    vendor_string[12] = 0;
+static const size_t kArchRuleCount = sizeof(kArchRules) / sizeof(kArchRules[0]);
 
-    __cpuid(cpuinfo, 1);
+static void DebugLine(const char* line) {
+    char flag[2];
+    HANDLE err;
+    DWORD wrote;
 
-    int family, model, stepping;
+    if (GetEnvironmentVariableA("MPIR_PROXY_DEBUG", flag, sizeof(flag)) != 1 || flag[0] != '1')
+        return;
+    err = GetStdHandle(STD_ERROR_HANDLE);
+    if (err == NULL || err == INVALID_HANDLE_VALUE)
+        return;
+    WriteFile(err, line, lstrlenA(line), &wrote, NULL);
+}
 
-    family = ((cpuinfo[0] >> 8) & 15) + ((cpuinfo[0] >> 20) & 0xff);
-    model = ((cpuinfo[0] >> 4) & 15) + ((cpuinfo[0] >> 12) & 0xf0);
-    stepping = cpuinfo[0] & 15;
+static int ArchToUtf8(const wchar_t* arch, char* buf, int cap) {
+    return WideCharToMultiByte(CP_UTF8, 0, arch, -1, buf, cap, NULL, NULL) > 0;
+}
 
-    const int AVX2 = 1 << 5;
+static void ReadCpu(struct CpuInfo* cpu) {
+    int regs[4];
+    int max_leaf;
+    char vendor[13];
+    unsigned eax;
+    unsigned ecx;
+    unsigned base_family;
+    unsigned base_model;
 
-    wcscpy_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"gc");
+    memset(cpu, 0, sizeof(*cpu));
 
-    if (strcmp(vendor_string, "GenuineIntel") == 0) {
-        switch (family) {
-        case 6:
-            switch (model) {
-            case 42:
-            case 45:
-            case 58:
-            case 62:
-                wcscpy_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"sandybridge");
-                break;
-            case 60:
-            case 63:
-            case 69:
-            case 70:
-                __cpuid(cpuinfo, 7);
-                if ((cpuinfo[1] & AVX2) == AVX2)
-                    wcscpy_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"haswell");
-                else
-                    // Haswell non AVX broken - G1840 celeron with no AVX
-                    wcscpy_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"gc");
-                break;
-            case 61:
-            case 71:
-            case 79:
-                wcscpy_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"broadwell");
-                __cpuid(cpuinfo, 7);
-                if ((cpuinfo[1] & AVX2) == AVX2)
-                    wcscat_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"_avx");
-                break;
-            case 78:
-            case 85:
-            case 94:
-            case 102:
-            case 106:
-            case 108:
-            case 125:
-            case 126:
-            case 140:
-            case 142:
-            case 158:
-            case 165:
-                wcscpy_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"skylake");
-                __cpuid(cpuinfo, 7);
-                if ((cpuinfo[1] & AVX2) == AVX2)
-                    wcscat_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"_avx");
-                else
-                    // Skylake non AVX broken https://github.com/wbhart/mpir/issues/274
-                    wcscpy_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"gc");
-                break;
-            }
-        }
+    __cpuid(regs, 0);
+    max_leaf = regs[0];
+    memcpy(vendor + 0, &regs[1], 4);
+    memcpy(vendor + 4, &regs[3], 4);
+    memcpy(vendor + 8, &regs[2], 4);
+    vendor[12] = '\0';
+    if (strcmp(vendor, "GenuineIntel") == 0)
+        cpu->vendor = VENDOR_INTEL;
+    else if (strcmp(vendor, "AuthenticAMD") == 0)
+        cpu->vendor = VENDOR_AMD;
+
+    if (max_leaf < 1)
+        return;
+
+    __cpuid(regs, 1);
+    eax = (unsigned)regs[0];
+    ecx = (unsigned)regs[2];
+    base_family = (eax >> 8) & 0xF;
+    base_model = (eax >> 4) & 0xF;
+    cpu->family = (int)base_family;
+    cpu->model = (int)base_model;
+    if (base_family == 0xF)
+        cpu->family += (int)((eax >> 20) & 0xFF);
+    if (base_family == 0x6 || base_family == 0xF)
+        cpu->model += (int)((eax >> 12) & 0xF0);
+
+    if (ecx & CPUID1_ECX_AVX)
+        cpu->features |= FEAT_AVX;
+    if (ecx & CPUID1_ECX_OSXSAVE) {
+        unsigned __int64 xcr0 = _xgetbv(0);
+        if ((xcr0 & XCR0_XMM_AND_YMM) == XCR0_XMM_AND_YMM)
+            cpu->features |= FEAT_OS_YMM;
     }
-    else if (strcmp(vendor_string, "AuthenticAMD") == 0) {
-        switch (family) {
-        case 21:
-            switch (model) {
-            case 1:
-                wcscpy_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"bulldozer");
-                break;
-            case 2:
-            case 3:
-            case 16:
-            case 18:
-            case 19:
-                wcscpy_s(modelstr, sizeof(modelstr)/sizeof(modelstr[0]), L"piledriver");
-                break;
-            }
-            break;
-        }
+
+    if (max_leaf >= 7) {
+        __cpuidex(regs, 7, 0);
+        if ((unsigned)regs[1] & CPUID7_EBX_AVX2)
+            cpu->features |= FEAT_AVX2;
+        if ((unsigned)regs[1] & CPUID7_EBX_BMI2)
+            cpu->features |= FEAT_BMI2;
+        if ((unsigned)regs[1] & CPUID7_EBX_ADX)
+            cpu->features |= FEAT_ADX;
     }
+}
+
+static int RuleMatches(const struct ArchRule* rule, const struct CpuInfo* cpu) {
+    if (rule->vendor != VENDOR_ANY && rule->vendor != cpu->vendor)
+        return 0;
+    if (rule->family >= 0 && rule->family != cpu->family)
+        return 0;
+    if (rule->model >= 0 && rule->model != cpu->model)
+        return 0;
+    if ((cpu->features & rule->features) != rule->features)
+        return 0;
+    return 1;
+}
+
+static const wchar_t* ArchByName(const wchar_t* name) {
+    size_t i;
+    for (i = 0; i < kArchRuleCount; i++) {
+        if (_wcsicmp(name, kArchRules[i].arch) == 0)
+            return kArchRules[i].arch;
+    }
+    return NULL;
+}
+
+static void DebugIgnoredOverride(const wchar_t* name) {
+    char utf8[64];
+    char line[160];
+
+    if (name != NULL && ArchToUtf8(name, utf8, (int)sizeof(utf8))) {
+        sprintf_s(line, sizeof(line), "mpir proxy: ignoring unknown MPIR_PROXY_ARCH=%s\n", utf8);
+        DebugLine(line);
+        return;
+    }
+    DebugLine("mpir proxy: ignoring unknown MPIR_PROXY_ARCH\n");
+}
+
+static const wchar_t* SelectArch(void) {
+    wchar_t override_arch[32];
+    DWORD n;
+    struct CpuInfo cpu;
+    size_t i;
+    const wchar_t* chosen = NULL;
+
+    n = GetEnvironmentVariableW(L"MPIR_PROXY_ARCH", override_arch, 32);
+    if (n >= 32) {
+        DebugIgnoredOverride(NULL);
+    } else if (n > 0) {
+        chosen = ArchByName(override_arch);
+        if (chosen)
+            return chosen;
+        DebugIgnoredOverride(override_arch);
+    }
+
+    ReadCpu(&cpu);
+    for (i = 0; i < kArchRuleCount; i++) {
+        if (RuleMatches(&kArchRules[i], &cpu))
+            return kArchRules[i].arch;
+    }
+    return L"gc";
+}
+
+static HMODULE LoadArchDll(const WCHAR* dir, const WCHAR* arch) {
+    WCHAR path[MPIRPATHLEN];
+    if (swprintf_s(path, MPIRPATHLEN, L"%s\\mpir_%s.dll", dir, arch) < 0) {
+        SetLastError(ERROR_FILENAME_EXCED_RANGE);
+        return NULL;
+    }
+    return LoadLibraryW(path);
+}
+
+static void DebugSelected(const wchar_t* arch) {
+    char name[64];
+    char line[128];
+    if (!ArchToUtf8(arch, name, (int)sizeof(name)))
+        return;
+    sprintf_s(line, sizeof(line), "mpir proxy: selected %s\n", name);
+    DebugLine(line);
+}
+
+static void DebugLoadFailed(const wchar_t* arch, DWORD err, const char* suffix) {
+    char name[64];
+    char line[256];
+    if (!ArchToUtf8(arch, name, (int)sizeof(name)))
+        return;
+    sprintf_s(line, sizeof(line),
+        "mpir proxy: failed to load mpir_%s.dll (Win32 error %lu)%s\n",
+        name, err, suffix);
+    DebugLine(line);
 }
 
 BOOL
 WINAPI
-DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
+DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID) {
+    WCHAR dir[MPIRPATHLEN];
+    DWORD got;
+    const wchar_t* arch;
+    int i;
+
     if (fdwReason == DLL_PROCESS_ATTACH) {
         mHinst = hinstDLL;
-        WCHAR RealDLL[MPIRPATHLEN + 1];
-        GetModuleFileNameW(mHinst, RealDLL, MPIRPATHLEN);
-        PathRemoveFileSpecW(RealDLL);
-        GetCPU();
-        wcscat_s(RealDLL, MPIRPATHLEN, L"\\mpir_");
-        wcscat_s(RealDLL, MPIRPATHLEN, modelstr);
-        wcscat_s(RealDLL, MPIRPATHLEN, L".dll");
-        mHinstDLL = LoadLibraryW(RealDLL);
-        if (!mHinstDLL) {
+        got = GetModuleFileNameW(mHinst, dir, MPIRPATHLEN);
+        if (got == 0 || got >= MPIRPATHLEN)
             return FALSE;
+        if (!PathRemoveFileSpecW(dir))
+            return FALSE;
+
+        arch = SelectArch();
+        mHinstDLL = LoadArchDll(dir, arch);
+        if (!mHinstDLL) {
+            DWORD err = GetLastError();
+            if (wcscmp(arch, L"gc") != 0) {
+                DebugLoadFailed(arch, err, ", falling back to gc");
+                arch = L"gc";
+                mHinstDLL = LoadArchDll(dir, arch);
+                if (!mHinstDLL)
+                    err = GetLastError();
+            }
+            if (!mHinstDLL) {
+                DebugLoadFailed(arch, err, "");
+                return FALSE;
+            }
         }
-        for (int i = 0; i < 600; ++i) {
+
+        DebugSelected(arch);
+        for (i = 0; i < kForwardCount; i++)
             mProcs[i] = (UINT_PTR)GetProcAddress(mHinstDLL, mImportNames[i]);
-        }
     } else if (fdwReason == DLL_PROCESS_DETACH) {
-        FreeLibrary(mHinstDLL);
+        if (mHinstDLL) {
+            FreeLibrary(mHinstDLL);
+            mHinstDLL = NULL;
+        }
     }
     return TRUE;
 }
