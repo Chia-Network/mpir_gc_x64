@@ -191,20 +191,29 @@ try {
     }
     Get-Content plan.txt | Tee-Object -FilePath $log | Out-Host
 
+    $autoArch = $null
     $runs = @()
     foreach ($line in Get-Content plan.txt) {
-        if ($line -match '^RUN (.+)$') {
+        if ($line -match '^AUTO (\S+)$') {
+            $autoArch = $Matches[1]
+        } elseif ($line -match '^RUN (.+)$') {
             $runs += $Matches[1].Trim()
         }
     }
-    if ($runs.Count -lt 1) {
-        throw "smoke --plan produced no RUN lines"
+    $runs = @($runs)
+    if (-not $autoArch) {
+        throw "smoke --plan did not print AUTO <arch> from the shared table"
+    }
+    if ($runs -notcontains "auto") {
+        throw "smoke --plan produced no RUN auto line"
     }
 
     $env:MPIR_PROXY_DEBUG = "1"
     foreach ($name in $runs) {
+        $expect = $name
         if ($name -eq "auto") {
             Remove-Item Env:MPIR_PROXY_ARCH -ErrorAction SilentlyContinue
+            $expect = $autoArch
         } else {
             $env:MPIR_PROXY_ARCH = $name
         }
@@ -217,11 +226,8 @@ try {
         if ($code -ne 0) {
             throw "smoke failed for $name (exit $code)"
         }
-        if ($text -notmatch "mpir proxy: selected \S+") {
-            throw "proxy did not log a selected arch for $name"
-        }
-        if ($name -ne "auto" -and $text -notmatch "(?m)mpir proxy: selected $([regex]::Escape($name))\s*$") {
-            throw "MPIR_PROXY_ARCH=$name was not the arch the proxy loaded"
+        if ($text -notmatch "(?m)mpir proxy: selected $([regex]::Escape($expect))\s*$") {
+            throw "proxy loaded a different arch than $expect for $name"
         }
         if ($text -notmatch "(?m)^ok\s*$") {
             throw "smoke did not print ok for $name"

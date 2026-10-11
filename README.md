@@ -10,13 +10,13 @@ forwards the MPIR exports to that DLL.
 | --- | --- |
 | `mpir.dll` | Proxy. Picks a variant and forwards about 600 exports. |
 | `mpir_gc.dll` | Generic C. Works on every x64 CPU. |
-| `mpir_sandybridge.dll` | AVX, with the OS saving YMM state. |
-| `mpir_haswell.dll` | BMI2 (`MULX`) and AVX2. No ADX. |
-| `mpir_broadwell.dll` | Broadwell build without AVX2. |
-| `mpir_broadwell_avx.dll` | Broadwell AVX2 build. The image has AVX2 and leaves ADX unused. |
-| `mpir_skylake_avx.dll` | BMI2, ADX (`ADCX`/`ADOX`), and AVX2. |
-| `mpir_bulldozer.dll` | AMD family 0x15 model 1. |
-| `mpir_piledriver.dll` | AMD family 0x15 models 2, 3, 16, 18, and 19. |
+| `mpir_sandybridge.dll` | `POPCNT` and baseline x64. The image has no VEX. |
+| `mpir_haswell.dll` | `POPCNT`, BMI2 (`MULX`), and AVX2. The image has no BMI1 and no ADX. |
+| `mpir_broadwell.dll` | Baseline x64. Used for Broadwell models when `broadwell_avx` cannot run. |
+| `mpir_broadwell_avx.dll` | BMI1 (`ANDN`/`BLSR`/`BLSI`), BMI2 (`SHLX`/`SHRX`/`SARX`), and AVX2. No ADX and no `POPCNT`. |
+| `mpir_skylake_avx.dll` | `POPCNT`, BMI1, BMI2, ADX (`ADCX`/`ADOX`), and AVX2. |
+| `mpir_bulldozer.dll` | Baseline x64. AMD family 0x15 model 1. |
+| `mpir_piledriver.dll` | Baseline x64. AMD family 0x15 models 2, 3, 16, 18, and 19. |
 | `mpir.lib`, `mpir.exp` | Import library for the proxy. The export ordinals are stable. |
 | `mpir.pdb` | Symbols for the proxy. |
 | `mpir.h`, `mpirxx.h`, `gmp.h`, `gmpxx.h` | Public headers. |
@@ -40,29 +40,35 @@ commit `104142c`. The variant DLLs stay the March 2021 builds.
 
 ## How the proxy chooses a variant
 
-`MPIR_PROXY_ARCH`, when set to one of the names below, wins. Any other
-value is ignored and the table is used. The first matching row wins.
+`MPIR_PROXY_ARCH`, when set to one of the names below, wins and skips
+the mask. Any other value is ignored and the table is used. The table
+lives in `proxy/arch.h`, which the proxy and `proxy/smoke.c` both include.
+
+`features` on every row is the ISA that DLL executes. Vendor, family, and
+model only break ties. The first matching row wins. A Broadwell whose OS
+does not save YMM misses `broadwell_avx` and loads the baseline
+`broadwell` DLL.
 
 | CPU | DLL |
 | --- | --- |
-| AMD family 21 (0x15), model 1 | `bulldozer` |
-| AMD family 21, models 2, 3, 16, 18, 19 | `piledriver` |
-| Intel family 6, models 61, 71, 79, with AVX2 | `broadwell_avx` |
-| Intel family 6, models 61, 71, 79 | `broadwell` |
-| BMI2 + ADX + AVX2, and the OS saves YMM | `skylake_avx` |
-| BMI2 + AVX2, and the OS saves YMM | `haswell` |
-| AVX, and the OS saves YMM | `sandybridge` |
+| AMD family 21 (0x15), model 1 | `bulldozer` (baseline x64) |
+| AMD family 21, models 2, 3, 16, 18, 19 | `piledriver` (baseline x64) |
+| Intel family 6, models 61, 71, 79, with BMI1 + BMI2 + AVX2, and the OS saves YMM | `broadwell_avx` |
+| Intel family 6, models 61, 71, 79 | `broadwell` (baseline x64) |
+| `POPCNT` + BMI1 + BMI2 + ADX + AVX2, and the OS saves YMM | `skylake_avx` |
+| `POPCNT` + BMI2 + AVX2, and the OS saves YMM | `haswell` |
+| `POPCNT` | `sandybridge` |
 | anything else | `gc` |
 
 YMM state is `XGETBV(0) & 6 == 6`, and it is only read when CPUID leaf 1
-ECX reports `OSXSAVE`. AVX, AVX2, BMI2, and ADX come from leaf 1 ECX and
-leaf 7 EBX.
+ECX reports `OSXSAVE`. `POPCNT` is leaf 1 ECX bit 23. AVX is leaf 1 ECX bit 28.
+BMI1 (bit 3), AVX2 (bit 5), BMI2 (bit 8), and ADX (bit 19) are leaf 7 subleaf 0 EBX.
 
-The Bulldozer, Piledriver, and Broadwell rows are the previous model map.
-They stay in front of the feature rows so those CPUs keep the DLL they
-already loaded. Broadwell also has BMI2, ADX, and AVX2, which the feature
-rows map to `skylake_avx`. Bulldozer has AVX, which the feature rows map
-to `sandybridge`.
+Bulldozer and Piledriver stay in front of the feature rows. Those images
+are baseline x64, so a family 0x15 model 1 part keeps `bulldozer` even
+though that CPU has `POPCNT`. Broadwell stays in front of `skylake_avx`.
+A Broadwell that has BMI1, BMI2, AVX2, and OS YMM keeps `broadwell_avx`
+(that image has no ADX). The same models without that ISA keep `broadwell`.
 
 If the chosen DLL fails to load, the proxy loads `mpir_gc.dll`.
 

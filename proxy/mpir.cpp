@@ -1,11 +1,11 @@
 #include <windows.h>
 #include <shlwapi.h>
-#include <intrin.h>
-#include <immintrin.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <wchar.h>
+
+#include "arch.h"
 
 #define MPIRPATHLEN 4096
 
@@ -622,72 +622,6 @@ extern "C" UINT_PTR mProcs[kForwardCount] = { 0 };
 static_assert(sizeof(mImportNames) / sizeof(mImportNames[0]) == kForwardCount,
     "mImportNames and mProcs must stay in lockstep with runasm.asm");
 
-enum {
-    FEAT_AVX = 1u << 0,
-    FEAT_AVX2 = 1u << 1,
-    FEAT_BMI2 = 1u << 2,
-    FEAT_ADX = 1u << 3,
-    /* XGETBV(0) & 6 == 6: the OS saves XMM and YMM. */
-    FEAT_OS_YMM = 1u << 4
-};
-
-enum {
-    CPUID1_ECX_OSXSAVE = 1u << 27,
-    CPUID1_ECX_AVX = 1u << 28,
-    CPUID7_EBX_AVX2 = 1u << 5,
-    CPUID7_EBX_BMI2 = 1u << 8,
-    CPUID7_EBX_ADX = 1u << 19,
-    XCR0_XMM_AND_YMM = 0x6
-};
-
-enum {
-    VENDOR_ANY = 0,
-    VENDOR_INTEL = 1,
-    VENDOR_AMD = 2
-};
-
-/* family or model < 0 matches any CPU. features is the set that must all be present. */
-struct ArchRule {
-    const wchar_t* arch;
-    int vendor;
-    int family;
-    int model;
-    unsigned features;
-};
-
-struct CpuInfo {
-    int vendor;
-    int family;
-    int model;
-    unsigned features;
-};
-
-/* First matching row wins.
-   Bulldozer, Piledriver, and Broadwell keep the DLLs the previous model map
-   loaded. Broadwell also has BMI2+ADX+AVX2, so the feature rows would select
-   skylake_avx; Bulldozer has AVX, so those rows would select sandybridge.
-   Every other CPU is selected from the feature rows. */
-static const struct ArchRule kArchRules[] = {
-    { L"bulldozer", VENDOR_AMD, 21, 1, 0 },
-    { L"piledriver", VENDOR_AMD, 21, 2, 0 },
-    { L"piledriver", VENDOR_AMD, 21, 3, 0 },
-    { L"piledriver", VENDOR_AMD, 21, 16, 0 },
-    { L"piledriver", VENDOR_AMD, 21, 18, 0 },
-    { L"piledriver", VENDOR_AMD, 21, 19, 0 },
-    { L"broadwell_avx", VENDOR_INTEL, 6, 61, FEAT_AVX2 },
-    { L"broadwell_avx", VENDOR_INTEL, 6, 71, FEAT_AVX2 },
-    { L"broadwell_avx", VENDOR_INTEL, 6, 79, FEAT_AVX2 },
-    { L"broadwell", VENDOR_INTEL, 6, 61, 0 },
-    { L"broadwell", VENDOR_INTEL, 6, 71, 0 },
-    { L"broadwell", VENDOR_INTEL, 6, 79, 0 },
-    { L"skylake_avx", VENDOR_ANY, -1, -1, FEAT_BMI2 | FEAT_ADX | FEAT_AVX2 | FEAT_OS_YMM },
-    { L"haswell", VENDOR_ANY, -1, -1, FEAT_BMI2 | FEAT_AVX2 | FEAT_OS_YMM },
-    { L"sandybridge", VENDOR_ANY, -1, -1, FEAT_AVX | FEAT_OS_YMM },
-    { L"gc", VENDOR_ANY, -1, -1, 0 },
-};
-
-static const size_t kArchRuleCount = sizeof(kArchRules) / sizeof(kArchRules[0]);
-
 static void DebugLine(const char* line) {
     char flag[2];
     HANDLE err;
@@ -705,78 +639,18 @@ static int ArchToUtf8(const wchar_t* arch, char* buf, int cap) {
     return WideCharToMultiByte(CP_UTF8, 0, arch, -1, buf, cap, NULL, NULL) > 0;
 }
 
-static void ReadCpu(struct CpuInfo* cpu) {
-    int regs[4];
-    int max_leaf;
-    char vendor[13];
-    unsigned eax;
-    unsigned ecx;
-    unsigned base_family;
-    unsigned base_model;
-
-    memset(cpu, 0, sizeof(*cpu));
-
-    __cpuid(regs, 0);
-    max_leaf = regs[0];
-    memcpy(vendor + 0, &regs[1], 4);
-    memcpy(vendor + 4, &regs[3], 4);
-    memcpy(vendor + 8, &regs[2], 4);
-    vendor[12] = '\0';
-    if (strcmp(vendor, "GenuineIntel") == 0)
-        cpu->vendor = VENDOR_INTEL;
-    else if (strcmp(vendor, "AuthenticAMD") == 0)
-        cpu->vendor = VENDOR_AMD;
-
-    if (max_leaf < 1)
-        return;
-
-    __cpuid(regs, 1);
-    eax = (unsigned)regs[0];
-    ecx = (unsigned)regs[2];
-    base_family = (eax >> 8) & 0xF;
-    base_model = (eax >> 4) & 0xF;
-    cpu->family = (int)base_family;
-    cpu->model = (int)base_model;
-    if (base_family == 0xF)
-        cpu->family += (int)((eax >> 20) & 0xFF);
-    if (base_family == 0x6 || base_family == 0xF)
-        cpu->model += (int)((eax >> 12) & 0xF0);
-
-    if (ecx & CPUID1_ECX_AVX)
-        cpu->features |= FEAT_AVX;
-    if (ecx & CPUID1_ECX_OSXSAVE) {
-        unsigned __int64 xcr0 = _xgetbv(0);
-        if ((xcr0 & XCR0_XMM_AND_YMM) == XCR0_XMM_AND_YMM)
-            cpu->features |= FEAT_OS_YMM;
-    }
-
-    if (max_leaf >= 7) {
-        __cpuidex(regs, 7, 0);
-        if ((unsigned)regs[1] & CPUID7_EBX_AVX2)
-            cpu->features |= FEAT_AVX2;
-        if ((unsigned)regs[1] & CPUID7_EBX_BMI2)
-            cpu->features |= FEAT_BMI2;
-        if ((unsigned)regs[1] & CPUID7_EBX_ADX)
-            cpu->features |= FEAT_ADX;
-    }
-}
-
-static int RuleMatches(const struct ArchRule* rule, const struct CpuInfo* cpu) {
-    if (rule->vendor != VENDOR_ANY && rule->vendor != cpu->vendor)
-        return 0;
-    if (rule->family >= 0 && rule->family != cpu->family)
-        return 0;
-    if (rule->model >= 0 && rule->model != cpu->model)
-        return 0;
-    if ((cpu->features & rule->features) != rule->features)
-        return 0;
-    return 1;
-}
-
-static const wchar_t* ArchByName(const wchar_t* name) {
+static const char* ArchByName(const wchar_t* name) {
+    char ascii[32];
     size_t i;
+
+    for (i = 0; name[i] != L'\0'; i++) {
+        if (i + 1 >= sizeof(ascii) || name[i] > 127)
+            return NULL;
+        ascii[i] = (char)name[i];
+    }
+    ascii[i] = '\0';
     for (i = 0; i < kArchRuleCount; i++) {
-        if (_wcsicmp(name, kArchRules[i].arch) == 0)
+        if (_stricmp(ascii, kArchRules[i].arch) == 0)
             return kArchRules[i].arch;
     }
     return NULL;
@@ -794,12 +668,11 @@ static void DebugIgnoredOverride(const wchar_t* name) {
     DebugLine("mpir proxy: ignoring unknown MPIR_PROXY_ARCH\n");
 }
 
-static const wchar_t* SelectArch(void) {
+static const char* SelectArch(void) {
     wchar_t override_arch[32];
     DWORD n;
-    struct CpuInfo cpu;
-    size_t i;
-    const wchar_t* chosen = NULL;
+    struct MpirCpu cpu;
+    const char* chosen;
 
     n = GetEnvironmentVariableW(L"MPIR_PROXY_ARCH", override_arch, 32);
     if (n >= 32) {
@@ -811,40 +684,41 @@ static const wchar_t* SelectArch(void) {
         DebugIgnoredOverride(override_arch);
     }
 
-    ReadCpu(&cpu);
-    for (i = 0; i < kArchRuleCount; i++) {
-        if (RuleMatches(&kArchRules[i], &cpu))
-            return kArchRules[i].arch;
-    }
-    return L"gc";
+    MpirReadCpu(&cpu);
+    return MpirSelectArch(&cpu);
 }
 
-static HMODULE LoadArchDll(const WCHAR* dir, const WCHAR* arch) {
+static HMODULE LoadArchDll(const WCHAR* dir, const char* arch) {
     WCHAR path[MPIRPATHLEN];
-    if (swprintf_s(path, MPIRPATHLEN, L"%s\\mpir_%s.dll", dir, arch) < 0) {
+    WCHAR wide[32];
+    size_t i;
+
+    for (i = 0; arch[i] != '\0'; i++) {
+        if (i + 1 >= sizeof(wide) / sizeof(wide[0])) {
+            SetLastError(ERROR_INVALID_NAME);
+            return NULL;
+        }
+        wide[i] = (unsigned char)arch[i];
+    }
+    wide[i] = L'\0';
+    if (swprintf_s(path, MPIRPATHLEN, L"%s\\mpir_%s.dll", dir, wide) < 0) {
         SetLastError(ERROR_FILENAME_EXCED_RANGE);
         return NULL;
     }
     return LoadLibraryW(path);
 }
 
-static void DebugSelected(const wchar_t* arch) {
-    char name[64];
+static void DebugSelected(const char* arch) {
     char line[128];
-    if (!ArchToUtf8(arch, name, (int)sizeof(name)))
-        return;
-    sprintf_s(line, sizeof(line), "mpir proxy: selected %s\n", name);
+    sprintf_s(line, sizeof(line), "mpir proxy: selected %s\n", arch);
     DebugLine(line);
 }
 
-static void DebugLoadFailed(const wchar_t* arch, DWORD err, const char* suffix) {
-    char name[64];
+static void DebugLoadFailed(const char* arch, DWORD err, const char* suffix) {
     char line[256];
-    if (!ArchToUtf8(arch, name, (int)sizeof(name)))
-        return;
     sprintf_s(line, sizeof(line),
         "mpir proxy: failed to load mpir_%s.dll (Win32 error %lu)%s\n",
-        name, err, suffix);
+        arch, err, suffix);
     DebugLine(line);
 }
 
@@ -853,7 +727,7 @@ WINAPI
 DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID) {
     WCHAR dir[MPIRPATHLEN];
     DWORD got;
-    const wchar_t* arch;
+    const char* arch;
     int i;
 
     if (fdwReason == DLL_PROCESS_ATTACH) {
@@ -868,9 +742,9 @@ DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID) {
         mHinstDLL = LoadArchDll(dir, arch);
         if (!mHinstDLL) {
             DWORD err = GetLastError();
-            if (wcscmp(arch, L"gc") != 0) {
+            if (strcmp(arch, "gc") != 0) {
                 DebugLoadFailed(arch, err, ", falling back to gc");
-                arch = L"gc";
+                arch = "gc";
                 mHinstDLL = LoadArchDll(dir, arch);
                 if (!mHinstDLL)
                     err = GetLastError();

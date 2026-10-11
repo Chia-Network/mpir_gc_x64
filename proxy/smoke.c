@@ -1,38 +1,17 @@
 /* Loads mpir.dll from this exe's directory and checks mpz_mul / mpz_add.
 
-   --plan prints the CPU and which MPIR_PROXY_ARCH values this CPU can
-   execute. The default mode calls through the proxy (honouring
-   MPIR_PROXY_ARCH if it is set). */
+   --plan prints the CPU, the arch proxy/arch.h selects (AUTO), and which
+   variant DLLs this CPU can execute. RUN means the CPU has every bit in
+   that DLL's mask. Vendor, family, and model break ties for AUTO.
+   The default mode calls through the proxy (honouring MPIR_PROXY_ARCH
+   if it is set). */
 
 #include <windows.h>
-#include <intrin.h>
-#include <immintrin.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-enum {
-    FEAT_AVX = 1u << 0,
-    FEAT_AVX2 = 1u << 1,
-    FEAT_BMI2 = 1u << 2,
-    FEAT_ADX = 1u << 3,
-    FEAT_OS_YMM = 1u << 4
-};
-
-enum {
-    CPUID1_ECX_OSXSAVE = 1u << 27,
-    CPUID1_ECX_AVX = 1u << 28,
-    CPUID7_EBX_AVX2 = 1u << 5,
-    CPUID7_EBX_BMI2 = 1u << 8,
-    CPUID7_EBX_ADX = 1u << 19,
-    XCR0_XMM_AND_YMM = 0x6
-};
-
-enum {
-    VENDOR_OTHER = 0,
-    VENDOR_INTEL = 1,
-    VENDOR_AMD = 2
-};
+#include "arch.h"
 
 /* Win64 __mpz_struct: two ints, then an unsigned long long pointer. */
 struct Mpz {
@@ -44,43 +23,14 @@ struct Mpz {
 typedef struct Mpz MpzT[1];
 
 struct Cpu {
+    struct MpirCpu hw;
     char brand[49];
     char vendor[13];
-    int vendor_id;
-    int family;
-    int model;
     int stepping;
     unsigned leaf1_ecx;
     unsigned leaf7_ebx;
     unsigned long long xcr0;
     int xcr0_valid;
-    unsigned features;
-};
-
-/* What this CPU can execute. Bulldozer and Piledriver stay tied to family
-   0x15 because those DLLs are tuned for that family. broadwell_avx needs
-   AVX2 and OS YMM state; its image has no ADX. */
-struct SmokeRow {
-    const char* arch;
-    unsigned features;
-    int vendor;
-    int family;
-    int model;
-};
-
-static const struct SmokeRow kRows[] = {
-    { "gc", 0, -1, -1, -1 },
-    { "sandybridge", FEAT_AVX | FEAT_OS_YMM, -1, -1, -1 },
-    { "haswell", FEAT_BMI2 | FEAT_AVX2 | FEAT_OS_YMM, -1, -1, -1 },
-    { "broadwell", FEAT_AVX | FEAT_OS_YMM, -1, -1, -1 },
-    { "broadwell_avx", FEAT_AVX2 | FEAT_OS_YMM, -1, -1, -1 },
-    { "skylake_avx", FEAT_BMI2 | FEAT_ADX | FEAT_AVX2 | FEAT_OS_YMM, -1, -1, -1 },
-    { "bulldozer", 0, VENDOR_AMD, 21, 1 },
-    { "piledriver", 0, VENDOR_AMD, 21, 2 },
-    { "piledriver", 0, VENDOR_AMD, 21, 3 },
-    { "piledriver", 0, VENDOR_AMD, 21, 16 },
-    { "piledriver", 0, VENDOR_AMD, 21, 18 },
-    { "piledriver", 0, VENDOR_AMD, 21, 19 },
 };
 
 static const char kA[] = "123456789012345678901234567890";
@@ -91,14 +41,13 @@ static const char kAdd[] = "1111111110111111111011111111100";
 static void ReadCpu(struct Cpu* cpu) {
     int regs[4];
     unsigned eax;
-    unsigned base_family;
-    unsigned base_model;
     int max_leaf;
     int brand_regs[12];
     size_t n;
 
     memset(cpu, 0, sizeof(*cpu));
     memcpy(cpu->brand, "unknown", 8);
+    MpirReadCpu(&cpu->hw);
 
     __cpuid(regs, 0);
     max_leaf = regs[0];
@@ -106,43 +55,21 @@ static void ReadCpu(struct Cpu* cpu) {
     memcpy(cpu->vendor + 4, &regs[3], 4);
     memcpy(cpu->vendor + 8, &regs[2], 4);
     cpu->vendor[12] = '\0';
-    if (strcmp(cpu->vendor, "GenuineIntel") == 0)
-        cpu->vendor_id = VENDOR_INTEL;
-    else if (strcmp(cpu->vendor, "AuthenticAMD") == 0)
-        cpu->vendor_id = VENDOR_AMD;
 
     if (max_leaf >= 1) {
         __cpuid(regs, 1);
         eax = (unsigned)regs[0];
         cpu->leaf1_ecx = (unsigned)regs[2];
         cpu->stepping = (int)(eax & 0xF);
-        base_family = (eax >> 8) & 0xF;
-        base_model = (eax >> 4) & 0xF;
-        cpu->family = (int)base_family;
-        cpu->model = (int)base_model;
-        if (base_family == 0xF)
-            cpu->family += (int)((eax >> 20) & 0xFF);
-        if (base_family == 0x6 || base_family == 0xF)
-            cpu->model += (int)((eax >> 12) & 0xF0);
-        if (cpu->leaf1_ecx & CPUID1_ECX_AVX)
-            cpu->features |= FEAT_AVX;
         if (cpu->leaf1_ecx & CPUID1_ECX_OSXSAVE) {
             cpu->xcr0 = _xgetbv(0);
             cpu->xcr0_valid = 1;
-            if ((cpu->xcr0 & XCR0_XMM_AND_YMM) == XCR0_XMM_AND_YMM)
-                cpu->features |= FEAT_OS_YMM;
         }
     }
 
     if (max_leaf >= 7) {
         __cpuidex(regs, 7, 0);
         cpu->leaf7_ebx = (unsigned)regs[1];
-        if (cpu->leaf7_ebx & CPUID7_EBX_AVX2)
-            cpu->features |= FEAT_AVX2;
-        if (cpu->leaf7_ebx & CPUID7_EBX_BMI2)
-            cpu->features |= FEAT_BMI2;
-        if (cpu->leaf7_ebx & CPUID7_EBX_ADX)
-            cpu->features |= FEAT_ADX;
     }
 
     __cpuid(regs, 0x80000000);
@@ -161,8 +88,8 @@ static void ReadCpu(struct Cpu* cpu) {
 static void PrintCpu(const struct Cpu* cpu) {
     printf("brand: %s\n", cpu->brand);
     printf("vendor: %s\n", cpu->vendor);
-    printf("family: %d\n", cpu->family);
-    printf("model: %d\n", cpu->model);
+    printf("family: %d\n", cpu->hw.family);
+    printf("model: %d\n", cpu->hw.model);
     printf("stepping: %d\n", cpu->stepping);
     printf("leaf1_ecx: 0x%08x\n", cpu->leaf1_ecx);
     printf("leaf7_ebx: 0x%08x\n", cpu->leaf7_ebx);
@@ -170,33 +97,14 @@ static void PrintCpu(const struct Cpu* cpu) {
         printf("xcr0: 0x%I64x\n", cpu->xcr0);
     else
         printf("xcr0: unavailable\n");
-    printf("AVX: %d\n", (cpu->features & FEAT_AVX) != 0);
+    printf("POPCNT: %d\n", (cpu->hw.features & FEAT_POPCNT) != 0);
+    printf("AVX: %d\n", (cpu->hw.features & FEAT_AVX) != 0);
     printf("OSXSAVE: %d\n", (cpu->leaf1_ecx & CPUID1_ECX_OSXSAVE) != 0);
-    printf("AVX2: %d\n", (cpu->features & FEAT_AVX2) != 0);
-    printf("BMI2: %d\n", (cpu->features & FEAT_BMI2) != 0);
-    printf("ADX: %d\n", (cpu->features & FEAT_ADX) != 0);
-    printf("OS_YMM: %d\n", (cpu->features & FEAT_OS_YMM) != 0);
-}
-
-static int RowMatches(const struct SmokeRow* row, const struct Cpu* cpu) {
-    if (row->vendor >= 0 && row->vendor != cpu->vendor_id)
-        return 0;
-    if (row->family >= 0 && row->family != cpu->family)
-        return 0;
-    if (row->model >= 0 && row->model != cpu->model)
-        return 0;
-    if ((cpu->features & row->features) != row->features)
-        return 0;
-    return 1;
-}
-
-static int ArchSupported(const struct Cpu* cpu, const char* arch) {
-    size_t i;
-    for (i = 0; i < sizeof(kRows) / sizeof(kRows[0]); i++) {
-        if (strcmp(kRows[i].arch, arch) == 0 && RowMatches(&kRows[i], cpu))
-            return 1;
-    }
-    return 0;
+    printf("AVX2: %d\n", (cpu->hw.features & FEAT_AVX2) != 0);
+    printf("BMI1: %d\n", (cpu->hw.features & FEAT_BMI1) != 0);
+    printf("BMI2: %d\n", (cpu->hw.features & FEAT_BMI2) != 0);
+    printf("ADX: %d\n", (cpu->hw.features & FEAT_ADX) != 0);
+    printf("OS_YMM: %d\n", (cpu->hw.features & FEAT_OS_YMM) != 0);
 }
 
 static int Plan(void) {
@@ -204,20 +112,23 @@ static int Plan(void) {
     size_t i;
     ReadCpu(&cpu);
     PrintCpu(&cpu);
+    printf("AUTO %s\n", MpirSelectArch(&cpu.hw));
     printf("RUN auto\n");
-    for (i = 0; i < sizeof(kRows) / sizeof(kRows[0]); i++) {
+    for (i = 0; i < kArchRuleCount; i++) {
         size_t j;
         int seen = 0;
+        unsigned mask;
         for (j = 0; j < i; j++) {
-            if (strcmp(kRows[j].arch, kRows[i].arch) == 0)
+            if (strcmp(kArchRules[j].arch, kArchRules[i].arch) == 0)
                 seen = 1;
         }
         if (seen)
             continue;
-        if (ArchSupported(&cpu, kRows[i].arch))
-            printf("RUN %s\n", kRows[i].arch);
+        mask = kArchRules[i].features;
+        if ((cpu.hw.features & mask) == mask)
+            printf("RUN %s\n", kArchRules[i].arch);
         else
-            printf("SKIP %s\n", kRows[i].arch);
+            printf("SKIP %s\n", kArchRules[i].arch);
     }
     return 0;
 }
