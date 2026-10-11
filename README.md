@@ -31,12 +31,12 @@ The variant DLLs were built in March 2021 by wjblanke from
 paths inside those DLLs point at `D:\Users\wjblanke\mpir\msvc\vs19\`.
 
 The proxy in this tree (`mpir.dll` and `mpir.pdb`) was built by
-[build-proxy run 38175255371](https://github.com/Chia-Network/mpir_gc_x64/actions/runs/38175255371)
+[build-proxy run 38179692586](https://github.com/Chia-Network/mpir_gc_x64/actions/runs/38179692586)
 on `windows-latest` image `20260925.250.1`. That job used MSBuild 18.10.1
 from Visual Studio 18 Enterprise, platform toolset v142, and Windows SDK
 10.0.26100.0, configuration Release|x64. The sources it compiled were the
-pull-request head `63bb5a0`. The previous proxy build on this branch was
-run 38173287500. The variant DLLs stay the March 2021 builds.
+pull-request head `eceb4c6`. The previous proxy build on this branch was
+run 38175255371. The variant DLLs stay the March 2021 builds.
 
 ## How the proxy chooses a variant
 
