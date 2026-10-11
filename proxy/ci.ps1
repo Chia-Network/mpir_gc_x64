@@ -52,8 +52,12 @@ if (-not $install) {
     throw "Visual C++ toolset is not installed"
 }
 
-$toolsetNames = @(Get-ChildItem -Path "$install\MSBuild\Microsoft\VC\*\Platforms\x64\PlatformToolsets" -Directory -ErrorAction SilentlyContinue |
-    Select-Object -ExpandProperty Name)
+# The wildcard path matches the PlatformToolsets directory itself. The toolset
+# id (v142, v143, ...) is the directory inside it.
+$toolsetNames = @(Get-ChildItem -Path "$install\MSBuild\Microsoft\VC" -Recurse -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Parent.Name -eq "PlatformToolsets" -and $_.FullName -match '\\x64\\PlatformToolsets\\' -and $_.Name -match '^v\d+$' } |
+    Select-Object -ExpandProperty Name -Unique)
+Write-Host "available toolsets: $($toolsetNames -join ', ')"
 if ($toolsetNames.Count -eq 0) {
     throw "No x64 platform toolset found under $install"
 }
