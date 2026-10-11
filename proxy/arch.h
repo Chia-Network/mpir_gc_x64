@@ -22,7 +22,6 @@
 #include <string.h>
 
 enum {
-    FEAT_AVX = 1u << 0,
     FEAT_AVX2 = 1u << 1,
     FEAT_BMI1 = 1u << 2,
     FEAT_BMI2 = 1u << 3,
@@ -35,7 +34,6 @@ enum {
 enum {
     CPUID1_ECX_POPCNT = 1u << 23,
     CPUID1_ECX_OSXSAVE = 1u << 27,
-    CPUID1_ECX_AVX = 1u << 28,
     CPUID7_EBX_BMI1 = 1u << 3,
     CPUID7_EBX_AVX2 = 1u << 5,
     CPUID7_EBX_BMI2 = 1u << 8,
@@ -126,8 +124,6 @@ static void MpirReadCpu(struct MpirCpu* cpu) {
 
     if (ecx & CPUID1_ECX_POPCNT)
         cpu->features |= FEAT_POPCNT;
-    if (ecx & CPUID1_ECX_AVX)
-        cpu->features |= FEAT_AVX;
     if (ecx & CPUID1_ECX_OSXSAVE) {
         unsigned __int64 xcr0 = _xgetbv(0);
         if ((xcr0 & XCR0_XMM_AND_YMM) == XCR0_XMM_AND_YMM)

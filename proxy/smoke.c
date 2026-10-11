@@ -98,7 +98,6 @@ static void PrintCpu(const struct Cpu* cpu) {
     else
         printf("xcr0: unavailable\n");
     printf("POPCNT: %d\n", (cpu->hw.features & FEAT_POPCNT) != 0);
-    printf("AVX: %d\n", (cpu->hw.features & FEAT_AVX) != 0);
     printf("OSXSAVE: %d\n", (cpu->leaf1_ecx & CPUID1_ECX_OSXSAVE) != 0);
     printf("AVX2: %d\n", (cpu->hw.features & FEAT_AVX2) != 0);
     printf("BMI1: %d\n", (cpu->hw.features & FEAT_BMI1) != 0);

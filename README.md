@@ -61,8 +61,8 @@ does not save YMM misses `broadwell_avx` and loads the baseline
 | anything else | `gc` |
 
 YMM state is `XGETBV(0) & 6 == 6`, and it is only read when CPUID leaf 1
-ECX reports `OSXSAVE`. `POPCNT` is leaf 1 ECX bit 23. AVX is leaf 1 ECX bit 28.
-BMI1 (bit 3), AVX2 (bit 5), BMI2 (bit 8), and ADX (bit 19) are leaf 7 subleaf 0 EBX.
+ECX reports `OSXSAVE`. `POPCNT` is leaf 1 ECX bit 23. BMI1 (bit 3),
+AVX2 (bit 5), BMI2 (bit 8), and ADX (bit 19) are leaf 7 subleaf 0 EBX.
 
 Bulldozer and Piledriver stay in front of the feature rows. Those images
 are baseline x64, so a family 0x15 model 1 part keeps `bulldozer` even
