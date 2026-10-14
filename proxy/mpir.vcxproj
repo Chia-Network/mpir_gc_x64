@@ -167,6 +167,9 @@
     <ClCompile Include="mpir.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="arch.h" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="mpir.def" />
   </ItemGroup>
   <ItemGroup>

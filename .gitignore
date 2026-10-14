@@ -1,0 +1,6 @@
+proxy/x64/
+proxy/testrun/
+proxy/smoke.exe
+proxy/smoke.obj
+proxy/*.obj
+artifacts/
